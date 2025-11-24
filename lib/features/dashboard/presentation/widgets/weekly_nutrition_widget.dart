@@ -10,28 +10,28 @@ class WeeklyNutritionWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildLegend(),
+          _buildLegend(context),
           const SizedBox(height: 16),
-          _buildChart(),
+          _buildChart(context),
           const SizedBox(height: 16),
-          _buildSummary(),
+          _buildSummary(context),
         ],
       ),
     );
   }
 
-  Widget _buildLegend() {
+  Widget _buildLegend(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _buildLegendItem('Carbs', Colors.red.shade400),
-        _buildLegendItem('Protein', Colors.blue.shade400),
-        _buildLegendItem('Fat', Colors.green.shade400),
+        _buildLegendItem(context, 'Carbs', Colors.red.shade400),
+        _buildLegendItem(context, 'Protein', Colors.blue.shade400),
+        _buildLegendItem(context, 'Fat', Colors.green.shade400),
       ],
     );
   }
 
-  Widget _buildLegendItem(String label, Color color) {
+  Widget _buildLegendItem(BuildContext context, String label, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -43,13 +43,17 @@ class WeeklyNutritionWidget extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildChart() {
+  Widget _buildChart(BuildContext context) {
     final weekData = _getWeekData();
 
     return Container(
@@ -72,9 +76,10 @@ class WeeklyNutritionWidget extends StatelessWidget {
                 child: Text(
                   dayData['day'],
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               );
@@ -118,7 +123,7 @@ class WeeklyNutritionWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildSummary() {
+  Widget _buildSummary(BuildContext context) {
     final weekData = _getWeekData();
     final avgCarbs =
         weekData.map((d) => d['carbs'] as double).reduce((a, b) => a + b) / 7;
@@ -130,18 +135,18 @@ class WeeklyNutritionWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.05),
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Weekly Averages',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: AppTheme.primaryColor,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
           const SizedBox(height: 8),
@@ -187,7 +192,13 @@ class WeeklyNutritionWidget extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          ),
+        ),
       ],
     );
   }

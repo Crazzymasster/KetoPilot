@@ -79,13 +79,13 @@ class _MoleculeBarsWidgetState extends State<MoleculeBarsWidget>
   Widget _buildHeader() {
     return Row(
       children: [
-        const Icon(Icons.biotech, color: AppTheme.primaryColor, size: 20),
+        Icon(Icons.biotech, color: Theme.of(context).colorScheme.primary, size: 20),
         const SizedBox(width: 6),
         Text(
           'Daily Molecules',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimaryColor,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const Spacer(),
@@ -250,7 +250,7 @@ class _MoleculeBarsWidgetState extends State<MoleculeBarsWidget>
                 width: 45,
                 height: availableHeight * 0.75,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Stack(
@@ -296,7 +296,7 @@ class _MoleculeBarsWidgetState extends State<MoleculeBarsWidget>
               label.toUpperCase(),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimaryColor,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 11,
               ),
             ),
@@ -306,7 +306,7 @@ class _MoleculeBarsWidgetState extends State<MoleculeBarsWidget>
               Text(
                 '($unit)',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textSecondaryColor,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                   fontSize: 8,
                 ),
                 maxLines: 1,
@@ -322,7 +322,7 @@ class _MoleculeBarsWidgetState extends State<MoleculeBarsWidget>
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -380,7 +380,7 @@ class _MoleculeBarsWidgetState extends State<MoleculeBarsWidget>
           _formatDisplayValue(value, unit),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             fontSize: 9,
-            color: AppTheme.textSecondaryColor,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
           ),
         ),
       ],
@@ -428,7 +428,7 @@ class _MoleculeBarsWidgetState extends State<MoleculeBarsWidget>
         if (value <= 3.0) return Colors.orange;
         return Colors.red;
       default:
-        return Colors.grey;
+        return Theme.of(context).colorScheme.onSurface.withOpacity(0.5);
     }
   }
 

@@ -663,7 +663,7 @@ class _DashboardPageState extends State<DashboardPage> {
             Text(
               title,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.textSecondaryColor,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
             const SizedBox(height: 4),
@@ -761,7 +761,7 @@ class _DashboardPageState extends State<DashboardPage> {
           'Glucose: ${glucose.toStringAsFixed(0)} mg/dL • Ketones: ${ketones.toStringAsFixed(1)} mmol/L',
           style: Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondaryColor),
+          ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
         ),
         trailing: Icon(
           gki <= 3.0 ? Icons.check_circle : Icons.info,
@@ -815,7 +815,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         Text(
                           'Learn how to interpret your glucose-ketone index for optimal health.',
                           style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppTheme.textSecondaryColor),
+                              ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
                         ),
                       ],
                     ),
@@ -843,7 +843,7 @@ class _DashboardPageState extends State<DashboardPage> {
         context.router.pushNamed('/food-diary');
         break;
       case 2:
-        // TODO: Navigate to trends/analytics
+        context.router.pushNamed('/trends');
         break;
       case 3:
         context.router.pushNamed('/settings');

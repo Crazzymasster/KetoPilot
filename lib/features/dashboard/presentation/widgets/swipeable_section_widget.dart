@@ -57,11 +57,11 @@ class _SwipeableSectionWidgetState extends State<SwipeableSectionWidget>
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Theme.of(context).shadowColor.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -89,7 +89,7 @@ class _SwipeableSectionWidgetState extends State<SwipeableSectionWidget>
           TextButton(
             onPressed: widget.onActionTap,
             style: TextButton.styleFrom(
-              foregroundColor: AppTheme.primaryColor,
+              foregroundColor: Theme.of(context).colorScheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             ),
             child: Text(
@@ -106,7 +106,7 @@ class _SwipeableSectionWidgetState extends State<SwipeableSectionWidget>
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -126,14 +126,16 @@ class _SwipeableSectionWidgetState extends State<SwipeableSectionWidget>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
           text,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade600,
+            color: isSelected 
+                ? Theme.of(context).colorScheme.onPrimary 
+                : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             fontSize: 14,
           ),

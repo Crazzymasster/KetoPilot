@@ -144,6 +144,139 @@ class HealthLogs extends Table {
   TextColumn get createdAt => text().withDefault(Constant(DateTime.now().toIso8601String()))();
 }
 
+/// Food Portions table definition for Drift
+class FoodPortions extends Table {
+  IntColumn get portionId => integer().autoIncrement()();
+  IntColumn get foodId => integer()();
+  
+  RealColumn get portionAmount => real()();
+  TextColumn get portionUnit => text()();
+  TextColumn get portionDescription => text().nullable()();
+  RealColumn get portionGramWeight => real()();
+  
+  RealColumn get energyKcal => real().nullable()();
+  RealColumn get proteinG => real().nullable()();
+  RealColumn get fatG => real().nullable()();
+  RealColumn get carbohydrateG => real().nullable()();
+  RealColumn get netCarbsG => real().nullable()();
+  
+  IntColumn get isDefault => integer().withDefault(const Constant(0))();
+  TextColumn get createdAt => text().withDefault(Constant(DateTime.now().toIso8601String()))();
+}
 
+/// Daily Summary table definition for Drift
+class DailySummaries extends Table {
+  IntColumn get summaryId => integer().autoIncrement()();
+  IntColumn get userId => integer()();
+  TextColumn get date => text()();
+  
+  RealColumn get totalEnergyKcal => real().withDefault(const Constant(0))();
+  RealColumn get totalProteinG => real().withDefault(const Constant(0))();
+  RealColumn get totalFatG => real().withDefault(const Constant(0))();
+  RealColumn get totalCarbohydrateG => real().withDefault(const Constant(0))();
+  RealColumn get totalNetCarbsG => real().withDefault(const Constant(0))();
+  RealColumn get totalFiberG => real().withDefault(const Constant(0))();
+  RealColumn get totalSodiumMg => real().withDefault(const Constant(0))();
+  RealColumn get totalPotassiumMg => real().withDefault(const Constant(0))();
+  RealColumn get totalMagnesiumMg => real().withDefault(const Constant(0))();
+  
+  IntColumn get carbGoalMet => integer().withDefault(const Constant(0))();
+  IntColumn get proteinGoalMet => integer().withDefault(const Constant(0))();
+  IntColumn get fatGoalMet => integer().withDefault(const Constant(0))();
+  
+  RealColumn get avgGlucoseMgDl => real().nullable()();
+  RealColumn get avgKetonesMmolL => real().nullable()();
+  RealColumn get avgGkiScore => real().nullable()();
+  RealColumn get minGkiScore => real().nullable()();
+  RealColumn get maxGkiScore => real().nullable()();
+  
+  IntColumn get inKetosis => integer().withDefault(const Constant(0))();
+  IntColumn get inTherapeuticKetosis => integer().withDefault(const Constant(0))();
+  
+  IntColumn get avgHeartRateBpm => integer().nullable()();
+  RealColumn get avgHrvMs => real().nullable()();
+  IntColumn get totalSteps => integer().nullable()();
+  
+  RealColumn get weightKg => real().nullable()();
+  RealColumn get weightChangeFromStartKg => real().nullable()();
+  
+  RealColumn get avgEnergyLevel => real().nullable()();
+  RealColumn get avgMentalClarity => real().nullable()();
+  RealColumn get avgMoodRating => real().nullable()();
+  
+  IntColumn get dietEntriesCount => integer().withDefault(const Constant(0))();
+  IntColumn get healthLogsCount => integer().withDefault(const Constant(0))();
+  
+  TextColumn get lastCalculatedAt => text().withDefault(Constant(DateTime.now().toIso8601String()))();
+  IntColumn get synced => integer().withDefault(const Constant(0))();
+}
+
+/// Vitals table definition for Drift
+class Vitals extends Table {
+  IntColumn get vitalId => integer().autoIncrement()();
+  IntColumn get userId => integer()();
+  
+  TextColumn get recordedAt => text()();
+  TextColumn get date => text()();
+  
+  IntColumn get heartRateBpm => integer().nullable()();
+  RealColumn get hrvMs => real().nullable()();
+  IntColumn get restingHeartRateBpm => integer().nullable()();
+  
+  RealColumn get bodyTemperatureCelsius => real().nullable()();
+  RealColumn get skinTemperatureCelsius => real().nullable()();
+  
+  RealColumn get sleepDurationHours => real().nullable()();
+  RealColumn get deepSleepHours => real().nullable()();
+  RealColumn get remSleepHours => real().nullable()();
+  RealColumn get lightSleepHours => real().nullable()();
+  IntColumn get sleepScore => integer().nullable()();
+  
+  IntColumn get stepsCount => integer().nullable()();
+  RealColumn get activeCaloriesKcal => real().nullable()();
+  RealColumn get totalCaloriesKcal => real().nullable()();
+  RealColumn get distanceKm => real().nullable()();
+  
+  IntColumn get respiratoryRateBpm => integer().nullable()();
+  RealColumn get spo2Percentage => real().nullable()();
+  
+  TextColumn get source => text().withDefault(const Constant('manual'))();
+  TextColumn get deviceId => text().nullable()();
+  
+  IntColumn get synced => integer().withDefault(const Constant(0))();
+  TextColumn get createdAt => text().withDefault(Constant(DateTime.now().toIso8601String()))();
+}
+
+/// Symptoms table definition for Drift
+class Symptoms extends Table {
+  IntColumn get symptomId => integer().autoIncrement()();
+  IntColumn get userId => integer()();
+  
+  TextColumn get recordedAt => text()();
+  TextColumn get date => text()();
+  
+  IntColumn get headacheSeverity => integer().nullable()();
+  IntColumn get fatigueSeverity => integer().nullable()();
+  IntColumn get nauseaSeverity => integer().nullable()();
+  IntColumn get dizzinessSeverity => integer().nullable()();
+  IntColumn get brainFogSeverity => integer().nullable()();
+  IntColumn get irritabilitySeverity => integer().nullable()();
+  IntColumn get muscleCrampsSeverity => integer().nullable()();
+  
+  IntColumn get energyLevel => integer().nullable()();
+  IntColumn get mentalClarity => integer().nullable()();
+  IntColumn get moodRating => integer().nullable()();
+  IntColumn get hungerLevel => integer().nullable()();
+  IntColumn get satietyLevel => integer().nullable()();
+  
+  IntColumn get bloatingSeverity => integer().nullable()();
+  IntColumn get digestionQuality => integer().nullable()();
+  
+  TextColumn get customSymptoms => text().nullable()();
+  TextColumn get additionalNotes => text().nullable()();
+  
+  IntColumn get synced => integer().withDefault(const Constant(0))();
+  TextColumn get createdAt => text().withDefault(Constant(DateTime.now().toIso8601String()))();
+}
 
 

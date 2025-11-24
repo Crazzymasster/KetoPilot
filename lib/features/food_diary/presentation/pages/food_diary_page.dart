@@ -26,10 +26,8 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
   DateTime _selectedDate = DateTime.now();
 
   // Database DAOs
-  final DriftDietEntryDao _driftDietEntryDao = DriftDietEntryDao();
-  final DietEntryDao? _dietEntryDao = kIsWeb ? null : DietEntryDao();
-  final DriftFoodDao _driftFoodDao = DriftFoodDao();
-  final FoodDao? _foodDao = kIsWeb ? null : FoodDao();
+        final DriftDietEntryDao _dietEntryDao = DriftDietEntryDao();
+        final DriftFoodDao _foodDao = DriftFoodDao();
   
   // Data from database
   List<_FoodEntryData> _todaysEntries = [];

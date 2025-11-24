@@ -1,20 +1,15 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
-import '../database/database_service.dart';
 import '../database/models/food_model.dart';
-import '../database/daos/food_dao.dart';
 import '../database/daos/drift_food_dao.dart';
-import '../database/daos/user_dao.dart';
+import '../database/daos/drift_user_dao.dart';
 import '../database/daos/food_creation_audit_dao.dart';
 
 /// Service for handling food creation with rate limiting
-/// Uses DriftFoodDao on web for compatibility
-/// Note: Rate limiting checks are skipped on web (UserDao uses sqflite)
+/// Uses Drift DAOs for cross-platform compatibility
 class FoodCreationService {
-  final DriftFoodDao _driftFoodDao = DriftFoodDao();
-  final FoodDao? _foodDao = kIsWeb ? null : FoodDao();
-  // UserDao and FoodCreationAuditDao use sqflite, not available on web
-  final UserDao? _userDao = kIsWeb ? null : UserDao();
-  final FoodCreationAuditDao? _auditDao = kIsWeb ? null : FoodCreationAuditDao();
+  final DriftFoodDao _foodDao = DriftFoodDao();
+  final DriftUserDao _userDao = DriftUserDao();
+  // Note: FoodCreationAuditDao still uses sqflite - will be migrated later
+  final FoodCreationAuditDao? _auditDao = null; // Temporarily disabled during migration
 
   /// Check if user can create food (rate limiting)
   /// On web, rate limiting is disabled (returns always allowed)
@@ -134,10 +129,8 @@ class FoodCreationService {
       createdAt: food.createdAt,
       updatedAt: food.updatedAt,
     );
-    // Use DriftFoodDao on web, FoodDao on mobile
-    final foodId = kIsWeb 
-        ? await _driftFoodDao.insertFood(foodWithUser)
-        : await _foodDao!.insertFood(foodWithUser);
+           // Use DriftFoodDao for all platforms
+           final foodId = await _foodDao.insertFood(foodWithUser);
 
     // The trigger will automatically increment the counter and create audit record
     // Note: Audit functionality may not work on web (uses sqflite-based DAO)

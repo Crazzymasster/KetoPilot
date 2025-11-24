@@ -13,9 +13,13 @@ part 'drift_database.g.dart';
 @DriftDatabase(tables: [
   Users,
   Foods,
+  FoodPortions,
   DietEntries,
   HealthLogs,
-  // Add more tables as needed
+  DailySummaries,
+  Vitals,
+  Symptoms,
+  // Add more tables as needed (Medications, ResearchData, etc.)
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
