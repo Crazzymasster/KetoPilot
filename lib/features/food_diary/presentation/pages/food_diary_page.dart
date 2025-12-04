@@ -33,6 +33,11 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
   List<_FoodEntryData> _todaysEntries = [];
   bool _isLoading = true;
   
+  // Search and sorting
+  String _searchQuery = '';
+  String _sortBy = 'time'; // 'time', 'carbs', 'protein', 'fat'
+  bool _sortAscending = false; // false = newest/highest first
+  
   // Macro totals (calculated from entries)
   double _carbsConsumed = 0.0;
   double _proteinConsumed = 0.0;
@@ -259,9 +264,36 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
       return const Center(child: CircularProgressIndicator());
     }
     
-    // Sort entries chronologically
-    final sortedEntries = [..._todaysEntries]
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    // Filter entries by search query
+    var filteredEntries = _todaysEntries.where((entry) {
+      if (_searchQuery.isEmpty) return true;
+      return entry.name.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+    
+    // Sort entries based on selected criteria
+    final sortedEntries = [...filteredEntries];
+    switch (_sortBy) {
+      case 'time':
+        sortedEntries.sort((a, b) => _sortAscending 
+          ? a.timestamp.compareTo(b.timestamp)
+          : b.timestamp.compareTo(a.timestamp));
+        break;
+      case 'carbs':
+        sortedEntries.sort((a, b) => _sortAscending
+          ? a.carbs.compareTo(b.carbs)
+          : b.carbs.compareTo(a.carbs));
+        break;
+      case 'protein':
+        sortedEntries.sort((a, b) => _sortAscending
+          ? a.protein.compareTo(b.protein)
+          : b.protein.compareTo(a.protein));
+        break;
+      case 'fat':
+        sortedEntries.sort((a, b) => _sortAscending
+          ? a.fat.compareTo(b.fat)
+          : b.fat.compareTo(a.fat));
+        break;
+    }
 
     return SingleChildScrollView(
       child: Column(
@@ -347,7 +379,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
       0,
       (sum, entry) => sum + entry.calories,
     );
-    double netCarbs = _carbsConsumed - 8.0; // Assuming 8g fiber
+    double netCarbs = _carbsConsumed; // Net carbs = carbs (no fiber tracked)
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -373,7 +405,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
             'kcal',
           ),
           _buildMacroSummaryItem('Net Carbs', netCarbs.toStringAsFixed(1), 'g'),
-          _buildMacroSummaryItem('Fiber', '8.0', 'g'),
+          _buildMacroSummaryItem('Fat', _fatConsumed.toStringAsFixed(1), 'g'),
         ],
       ),
     );
@@ -457,34 +489,124 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
   }
 
   Widget _buildTimelineHeader() {
+    final filteredCount = _todaysEntries.where((entry) {
+      if (_searchQuery.isEmpty) return true;
+      return entry.name.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).length;
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Icon(
-            Icons.timeline,
-            color: Theme.of(context).colorScheme.primary,
-            size: 20,
+          Row(
+            children: [
+              Icon(
+                Icons.timeline,
+                color: Theme.of(context).colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Food Timeline',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _searchQuery.isNotEmpty 
+                  ? '$filteredCount of ${_todaysEntries.length}'
+                  : '${_todaysEntries.length} entries',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            'Food Timeline',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
+          if (_searchQuery.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.search,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Searching: "$_searchQuery"',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => setState(() => _searchQuery = ''),
+                    child: Icon(
+                      Icons.close,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Spacer(),
-          Text(
-            '${_todaysEntries.length} entries',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-            ),
+          ],
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                'Sort by:',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildSortChip('Time', 'time', Icons.access_time),
+                      const SizedBox(width: 6),
+                      _buildSortChip('Carbs', 'carbs', Icons.eco),
+                      const SizedBox(width: 6),
+                      _buildSortChip('Protein', 'protein', Icons.fitness_center),
+                      const SizedBox(width: 6),
+                      _buildSortChip('Fat', 'fat', Icons.water_drop),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Icon(
+                  _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                  size: 18,
+                ),
+                onPressed: () => setState(() => _sortAscending = !_sortAscending),
+                tooltip: _sortAscending ? 'Ascending' : 'Descending',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ],
           ),
         ],
       ),
@@ -782,12 +904,48 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
   }
 
   void _searchFood() {
-    // TODO: Implement food search
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Food search coming soon!'),
-        backgroundColor: AppTheme.infoColor,
+    showDialog(
+      context: context,
+      builder: (context) => _SearchDialog(
+        onSearch: (query) {
+          setState(() {
+            _searchQuery = query;
+          });
+        },
+        initialQuery: _searchQuery,
       ),
+    );
+  }
+
+  Widget _buildSortChip(String label, String value, IconData icon) {
+    final isSelected = _sortBy == value;
+    return FilterChip(
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14),
+          const SizedBox(width: 4),
+          Text(label),
+        ],
+      ),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          _sortBy = value;
+        });
+      },
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+      checkmarkColor: Theme.of(context).colorScheme.primary,
+      labelStyle: TextStyle(
+        fontSize: 11,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        color: isSelected 
+          ? Theme.of(context).colorScheme.primary
+          : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
 
@@ -1125,50 +1283,113 @@ class _AddFoodDialog extends StatefulWidget {
 class _AddFoodDialogState extends State<_AddFoodDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _caloriesController = TextEditingController();
-  final _proteinController = TextEditingController();
-  final _fatController = TextEditingController();
-  final _carbsController = TextEditingController();
-  final _fiberController = TextEditingController(text: '0');
+  final _proteinController = TextEditingController(text: '0');
+  final _fatController = TextEditingController(text: '0');
+  final _carbsController = TextEditingController(text: '0');
+  final _searchController = TextEditingController();
+
   double _netCarbs = 0.0;
+  double _calculatedCalories = 0.0;
+  bool _showCustomForm = false;
+
+  // Hard-coded list of suggested foods to simulate DB
+  late final List<FoodModel> _suggestedFoods = [
+    FoodModel(
+      foodDescription: 'Grilled Chicken Breast (100g)',
+      energyKcal: 165.0,
+      totalProteinG: 31.0,
+      totalFatG: 4.0,
+      totalCarbohydrateG: 0.0,
+      dietaryFiberG: 0.0,
+      source: 'ncc',
+    ),
+    FoodModel(
+      foodDescription: 'Avocado (100g)',
+      energyKcal: 160.0,
+      totalProteinG: 2.0,
+      totalFatG: 15.0,
+      totalCarbohydrateG: 9.0,
+      dietaryFiberG: 7.0,
+      source: 'ncc',
+    ),
+    FoodModel(
+      foodDescription: 'Almonds (28g)',
+      energyKcal: 164.0,
+      totalProteinG: 6.0,
+      totalFatG: 14.0,
+      totalCarbohydrateG: 6.0,
+      dietaryFiberG: 3.0,
+      source: 'ncc',
+    ),
+    FoodModel(
+      foodDescription: 'Broccoli (100g)',
+      energyKcal: 55.0,
+      totalProteinG: 3.7,
+      totalFatG: 0.6,
+      totalCarbohydrateG: 11.1,
+      dietaryFiberG: 3.8,
+      source: 'ncc',
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _carbsController.addListener(_updateNetCarbs);
-    _fiberController.addListener(_updateNetCarbs);
+    _carbsController.addListener(_updateMacros);
+    _proteinController.addListener(_updateMacros);
+    _fatController.addListener(_updateMacros);
+    _searchController.addListener(() => setState(() {}));
+    // Initialize calculations with default values
+    _updateMacros();
   }
 
-  void _updateNetCarbs() {
+  void _updateMacros() {
+    // Recalculate net carbs and calories whenever macros change
+    final carbs = double.tryParse(_carbsController.text) ?? 0.0;
+    final protein = double.tryParse(_proteinController.text) ?? 0.0;
+    final fat = double.tryParse(_fatController.text) ?? 0.0;
+
+    // Net carbs = carbs (no fiber subtraction)
+    final netCarbs = carbs < 0 ? 0.0 : carbs;
+
+    // Calculate calories: protein(4 kcal/g) + carbs(4 kcal/g) + fat(9 kcal/g)
+    final calories = (protein * 4.0) + (netCarbs * 4.0) + (fat * 9.0);
+    final cal = calories < 0 ? 0.0 : calories;
+
     setState(() {
-      _netCarbs = _calculateNetCarbs();
+      _netCarbs = netCarbs;
+      _calculatedCalories = cal;
     });
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _caloriesController.dispose();
+    _proteinController.removeListener(_updateMacros);
     _proteinController.dispose();
+    _fatController.removeListener(_updateMacros);
     _fatController.dispose();
-    _carbsController.removeListener(_updateNetCarbs);
+    _carbsController.removeListener(_updateMacros);
     _carbsController.dispose();
-    _fiberController.removeListener(_updateNetCarbs);
-    _fiberController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  void _submit() {
+  void _submitCustom() {
     if (_formKey.currentState!.validate()) {
+      final protein = double.tryParse(_proteinController.text) ?? 0.0;
+      final fat = double.tryParse(_fatController.text) ?? 0.0;
+      final carbs = double.tryParse(_carbsController.text) ?? 0.0;
+
       final food = FoodModel(
         foodDescription: _nameController.text.trim(),
-        energyKcal: double.parse(_caloriesController.text),
-        totalProteinG: double.parse(_proteinController.text),
-        totalFatG: double.parse(_fatController.text),
-        totalCarbohydrateG: double.parse(_carbsController.text),
-        dietaryFiberG: double.tryParse(_fiberController.text) ?? 0.0,
+        energyKcal: _calculatedCalories,
+        totalProteinG: protein,
+        totalFatG: fat,
+        totalCarbohydrateG: carbs,
+        dietaryFiberG: 0.0,
         source: 'user',
-        isKetoFriendly: _calculateNetCarbs() <= 20 ? 1 : 0,
+        isKetoFriendly: _netCarbs <= 20 ? 1 : 0,
       );
 
       Navigator.of(context).pop(food);
@@ -1177,183 +1398,308 @@ class _AddFoodDialogState extends State<_AddFoodDialog> {
 
   double _calculateNetCarbs() {
     final carbs = double.tryParse(_carbsController.text) ?? 0.0;
-    final fiber = double.tryParse(_fiberController.text) ?? 0.0;
-    return carbs - fiber;
+    return carbs;
+  }
+
+  bool _isValidName(String? value) {
+    if (value == null || value.trim().isEmpty) return false;
+    // Allow letters, numbers, spaces, commas, parentheses, hyphens and periods
+    final validNameRegExp = RegExp(r'^[A-Za-z0-9\s,().\-]+$');
+    return validNameRegExp.hasMatch(value.trim());
+  }
+
+  List<FoodModel> get _filteredSuggestions {
+    final q = _searchController.text.toLowerCase().trim();
+    if (q.isEmpty) return _suggestedFoods;
+    return _suggestedFoods.where((f) => f.foodDescription.toLowerCase().contains(q)).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add New Food'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Food Name *',
-                  hintText: 'e.g., Grilled Chicken Breast',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a food name';
-                  }
-                  return null;
-                },
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _caloriesController,
-                decoration: const InputDecoration(
-                  labelText: 'Calories *',
-                  hintText: 'kcal',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Required';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Invalid number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
+    // Get screen size for responsive dialog
+    final screenSize = MediaQuery.of(context).size;
+    final dialogWidth = screenSize.width * 0.85;
+    final dialogHeight = screenSize.height * 0.8;
+
+    return Dialog(
+      child: SizedBox(
+        width: dialogWidth,
+        height: dialogHeight,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Add Food'),
+            elevation: 0,
+          ),
+          body: SizedBox.expand(
+            child: Column(
+              children: [
+                if (!_showCustomForm)
                   Expanded(
-                    child: TextFormField(
-                      controller: _proteinController,
-                      decoration: const InputDecoration(
-                        labelText: 'Protein (g) *',
-                        hintText: '0.0',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Required';
-                        }
-                        if (double.tryParse(value) == null) {
-                          return 'Invalid';
-                        }
-                        return null;
-                      },
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.search),
+                              hintText: 'Search foods...',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                            child: SizedBox(
+                              width: double.maxFinite,
+                              child: _filteredSuggestions.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        'No foods match your search',
+                                        style: Theme.of(context).textTheme.bodyMedium,
+                                      ),
+                                    )
+                                  : ListView.separated(
+                                      itemCount: _filteredSuggestions.length,
+                                      separatorBuilder: (c, i) => const Divider(height: 1),
+                                      itemBuilder: (c, i) {
+                                        final f = _filteredSuggestions[i];
+                                        return ListTile(
+                                          title: Text(f.foodDescription),
+                                          subtitle: Row(
+                                            children: [
+                                              Chip(
+                                                label: Text('C: ${f.totalCarbohydrateG.toStringAsFixed(1)}g'),
+                                                backgroundColor: Colors.orange.shade50,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Chip(
+                                                label: Text('P: ${f.totalProteinG.toStringAsFixed(1)}g'),
+                                                backgroundColor: Colors.blue.shade50,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Chip(
+                                                label: Text('F: ${f.totalFatG.toStringAsFixed(1)}g'),
+                                                backgroundColor: Colors.green.shade50,
+                                              ),
+                                            ],
+                                          ),
+                                          onTap: () => Navigator.of(context).pop(f),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('Cancel'),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton(
+                                onPressed: () => setState(() => _showCustomForm = true),
+                                child: const Text('Add Custom Food'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                  )
+                else
                   Expanded(
-                    child: TextFormField(
-                      controller: _fatController,
-                      decoration: const InputDecoration(
-                        labelText: 'Fat (g) *',
-                        hintText: '0.0',
-                        border: OutlineInputBorder(),
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextFormField(
+                                controller: _nameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Food Name *',
+                                  hintText: 'e.g., Grilled Chicken Breast',
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Please enter a food name';
+                                  }
+                                  if (!_isValidName(value)) {
+                                    return 'Invalid characters in name';
+                                  }
+                                  return null;
+                                },
+                                textCapitalization: TextCapitalization.words,
+                              ),
+                              const SizedBox(height: 16),
+                              // Large, prominent calories display (auto-calculated)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Calories (auto)',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '${_calculatedCalories.toStringAsFixed(0)} kcal',
+                                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Theme.of(context).colorScheme.primary,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              // Macros inputs in 2-column grid layout
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _proteinController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Protein (g) *',
+                                        hintText: '0',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) return 'Required';
+                                        final n = double.tryParse(value);
+                                        if (n == null) return 'Invalid';
+                                        if (n < 0) return 'No negatives';
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _fatController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Fat (g) *',
+                                        hintText: '0',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) return 'Required';
+                                        final n = double.tryParse(value);
+                                        if (n == null) return 'Invalid';
+                                        if (n < 0) return 'No negatives';
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: _carbsController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Carbs (g) *',
+                                  hintText: '0',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) return 'Required';
+                                  final n = double.tryParse(value);
+                                  if (n == null) return 'Invalid';
+                                  if (n < 0) return 'No negatives';
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: _netCarbs <= 20
+                                      ? Colors.green.shade50
+                                      : Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: _netCarbs <= 20
+                                        ? Colors.green.shade300
+                                        : Colors.orange.shade300,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _netCarbs <= 20 ? Icons.check_circle : Icons.info,
+                                      color: _netCarbs <= 20 ? Colors.green : Colors.orange,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Net Carbs',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: _netCarbs <= 20 ? Colors.green.shade700 : Colors.orange.shade700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${_netCarbs.toStringAsFixed(1)}g',
+                                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: _netCarbs <= 20 ? Colors.green.shade700 : Colors.orange.shade700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: () => setState(() => _showCustomForm = false),
+                                    child: const Text('Back'),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  ElevatedButton(
+                                    onPressed: _submitCustom,
+                                    child: const Text('Add Food'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Required';
-                        }
-                        if (double.tryParse(value) == null) {
-                          return 'Invalid';
-                        }
-                        return null;
-                      },
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _carbsController,
-                      decoration: const InputDecoration(
-                        labelText: 'Carbs (g) *',
-                        hintText: '0.0',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Required';
-                        }
-                        if (double.tryParse(value) == null) {
-                          return 'Invalid';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _fiberController,
-                      decoration: const InputDecoration(
-                        labelText: 'Fiber (g)',
-                        hintText: '0.0',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _netCarbs <= 20
-                      ? Colors.green.shade50
-                      : Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _netCarbs <= 20
-                        ? Colors.green.shade200
-                        : Colors.orange.shade200,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _netCarbs <= 20 ? Icons.check_circle : Icons.info,
-                      color: _netCarbs <= 20 ? Colors.green : Colors.orange,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Net Carbs: ${_netCarbs.toStringAsFixed(1)}g',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _netCarbs <= 20 ? Colors.green.shade700 : Colors.orange.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _submit,
-          child: const Text('Add Food'),
-        ),
-      ],
     );
   }
 }
@@ -1432,7 +1778,7 @@ class _EditDietEntryDialogState extends State<_EditDietEntryDialog> {
 
   void _updateNetCarbs() {
     final carbs = double.tryParse(_carbsController.text) ?? 0.0;
-    final fiber = double.tryParse(_fiberController.text) ?? 0.0;
+    final fiber = 0.0; // No fiber input, hardcoded to 0
     final netCarbs = carbs - fiber;
     final currentNetCarbs = double.tryParse(_netCarbsController.text) ?? 0.0;
     if ((netCarbs - currentNetCarbs).abs() > 0.01) {
@@ -1448,7 +1794,7 @@ class _EditDietEntryDialogState extends State<_EditDietEntryDialog> {
       final protein = double.tryParse(_proteinController.text);
       final fat = double.tryParse(_fatController.text);
       final carbs = double.tryParse(_carbsController.text);
-      final fiber = double.tryParse(_fiberController.text) ?? 0.0;
+      final fiber = 0.0; // No fiber input, hardcoded to 0
 
       if (calories == null || netCarbs == null || protein == null || fat == null || carbs == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2225,3 +2571,91 @@ class _DailyMacros {
     required this.fat,
   });
 }
+
+/// Search Dialog Widget
+class _SearchDialog extends StatefulWidget {
+  final Function(String) onSearch;
+  final String initialQuery;
+
+  const _SearchDialog({
+    required this.onSearch,
+    required this.initialQuery,
+  });
+
+  @override
+  State<_SearchDialog> createState() => _SearchDialogState();
+}
+
+class _SearchDialogState extends State<_SearchDialog> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialQuery);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Search Foods'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(
+          hintText: 'Enter food name...',
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          suffixIcon: _controller.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() {});
+                  },
+                )
+              : null,
+        ),
+        onChanged: (value) => setState(() {}),
+        onSubmitted: (value) {
+          widget.onSearch(value);
+          Navigator.of(context).pop();
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            widget.onSearch('');
+            Navigator.of(context).pop();
+          },
+          child: const Text('Clear'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            widget.onSearch(_controller.text);
+            Navigator.of(context).pop();
+          },
+          child: const Text('Search'),
+        ),
+      ],
+    );
+  }
+}
+
+
+
+
+
+
