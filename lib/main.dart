@@ -34,12 +34,19 @@ void _initializeDatabaseAsync() {
   });
 }
 
-class MetabolicHealthApp extends ConsumerWidget {
+class MetabolicHealthApp extends ConsumerStatefulWidget {
   const MetabolicHealthApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final appRouter = AppRouter();
+  ConsumerState<MetabolicHealthApp> createState() => _MetabolicHealthAppState();
+}
+
+class _MetabolicHealthAppState extends ConsumerState<MetabolicHealthApp> {
+  // AppRouter is now stored in state, so it persists across rebuilds
+  final _appRouter = AppRouter();
+
+  @override
+  Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
@@ -47,7 +54,7 @@ class MetabolicHealthApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
-      routerConfig: appRouter.config(),
+      routerConfig: _appRouter.config(),
       debugShowCheckedModeBanner: false,
     );
   }
