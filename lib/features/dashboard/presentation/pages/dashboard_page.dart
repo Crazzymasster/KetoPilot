@@ -1,9 +1,11 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../core/database/daos/drift_diet_entry_dao.dart';
 import '../../../food_diary/presentation/widgets/macro_bars_widget.dart';
 import '../widgets/molecule_bars_widget.dart';
 import '../widgets/swipeable_section_widget.dart';
@@ -20,6 +22,57 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
+  final DriftDietEntryDao _dietEntryDao = DriftDietEntryDao();
+  
+  bool _isLoadingNutrition = true;
+  double _todayCarbs = 0.0;
+  double _todayProtein = 0.0;
+  double _todayFat = 0.0;
+  
+  static const int _userId = 1;
+  final double _carbsLimit = 20.0;
+  final double _proteinGoal = 100.0;
+  final double _fatGoal = 150.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodaysNutrition();
+  }
+
+  Future<void> _loadTodaysNutrition() async {
+    setState(() {
+      _isLoadingNutrition = true;
+    });
+    
+    try {
+      final now = DateTime.now();
+      final dateStr = now.toIso8601String().split('T')[0];
+      final entries = await _dietEntryDao.getDietEntriesByDate(_userId, dateStr);
+      
+      double carbs = 0.0;
+      double protein = 0.0;
+      double fat = 0.0;
+      
+      for (final entry in entries) {
+        carbs += entry.totalCarbohydrateG;
+        protein += entry.totalProteinG;
+        fat += entry.totalFatG;
+      }
+      
+      setState(() {
+        _todayCarbs = carbs;
+        _todayProtein = protein;
+        _todayFat = fat;
+        _isLoadingNutrition = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading nutrition data: $e');
+      setState(() {
+        _isLoadingNutrition = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,8 +97,7 @@ class _DashboardPageState extends State<DashboardPage> {
       drawer: const AppDrawer(),
       body: RefreshIndicator(
         onRefresh: () async {
-          // TODO: Refresh data
-          await Future.delayed(const Duration(seconds: 1));
+          await _loadTodaysNutrition();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -532,17 +584,24 @@ class _DashboardPageState extends State<DashboardPage> {
         // Swipeable Nutrition Section (Daily/Weekly)
         SwipeableSectionWidget(
           title: 'Nutrition',
-          dailyWidget: MacroBarsWidget(
-            carbsGrams: 11.0, // Example values from the slide
-            proteinGrams: 75.0,
-            fatGrams: 50.0,
-            carbsLimit: 20.0, // Using new parameter names
-            proteinGoal: 80.0,
-            fatGoal: 45.0,
-            maxBarHeight: 120.0,
-            showTargetLines: true,
-            showValues: true,
-          ),
+          dailyWidget: _isLoadingNutrition
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              : MacroBarsWidget(
+                  carbsGrams: _todayCarbs,
+                  proteinGrams: _todayProtein,
+                  fatGrams: _todayFat,
+                  carbsLimit: _carbsLimit,
+                  proteinGoal: _proteinGoal,
+                  fatGoal: _fatGoal,
+                  maxBarHeight: 120.0,
+                  showTargetLines: true,
+                  showValues: true,
+                ),
           weeklyWidget: const WeeklyNutritionWidget(),
           actionText: 'Food Diary',
           onActionTap: () => context.router.pushNamed('/food-diary'),

@@ -228,7 +228,7 @@ class _MacroBarsWidgetState extends State<MacroBarsWidget>
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: actualColor,
-                        fontSize: 11,
+                        fontSize: 12,
                       ),
                     ),
                     if (targetValue > 0)
@@ -238,8 +238,8 @@ class _MacroBarsWidgetState extends State<MacroBarsWidget>
                           color: exceedsTarget
                               ? Colors.red
                               : _getPercentageColor(percentage),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                   ],
@@ -313,7 +313,7 @@ class _MacroBarsWidgetState extends State<MacroBarsWidget>
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 11,
+                fontSize: 12,
               ),
             ),
 
@@ -324,8 +324,8 @@ class _MacroBarsWidgetState extends State<MacroBarsWidget>
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(
                     context,
-                  ).colorScheme.onSurface.withOpacity(0.7),
-                  fontSize: 9,
+                  ).colorScheme.onSurface.withOpacity(0.8),
+                  fontSize: 10,
                 ),
               ),
           ],
@@ -414,7 +414,7 @@ class _MacroBarsWidgetState extends State<MacroBarsWidget>
             Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -423,8 +423,8 @@ class _MacroBarsWidgetState extends State<MacroBarsWidget>
         Text(
           '${value.toStringAsFixed(0)}g',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontSize: 9,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
           ),
         ),
       ],
@@ -445,24 +445,59 @@ class _MacroBarsWidgetState extends State<MacroBarsWidget>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Daily Nutrition Guide'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('🍞 Carbs: Stay under your limit for ketosis'),
-            Text('🥩 Protein: Reach your goal for muscle maintenance'),
-            Text('🥑 Fat: Reach your goal for energy and satiety'),
-            SizedBox(height: 12),
-            Text('• Red dotted line = Limit (don\'t exceed)'),
-            Text('• Solid line = Goal (aim to reach)'),
-            Text('• Bar turns red when limit is exceeded'),
-          ],
+        title: const Text('Macronutrient Targets'),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Carbohydrates',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Maintain intake below your daily limit to support nutritional ketosis and metabolic adaptation.',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Protein',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Meet your daily protein target to preserve lean muscle mass and support essential metabolic functions.',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Fat',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Achieve your fat goal to provide adequate energy and support satiety in a ketogenic dietary pattern.',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 16),
+              Divider(),
+              SizedBox(height: 8),
+              Text(
+                'Visual Indicators:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 8),
+              Text('• Red dotted line indicates maximum threshold'),
+              Text('• Solid baseline represents target goal'),
+              Text('• Bar color changes to red when limit is exceeded'),
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got it'),
+            child: const Text('Understood'),
           ),
         ],
       ),
