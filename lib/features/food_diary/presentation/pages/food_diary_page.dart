@@ -1,16 +1,19 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/themes/app_theme.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import '../../../../core/repositories/food_repository.dart';
 import '../../../../core/database/models/food_model.dart';
 import '../../../../core/database/models/diet_entry_model.dart';
 import '../../../../core/database/daos/drift_diet_entry_dao.dart';
-import '../../../../core/database/daos/diet_entry_dao.dart';
 import '../../../../core/database/daos/drift_food_dao.dart';
-import '../../../../core/database/daos/food_dao.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+
+import '../../data/food_entry_data.dart';
+import '../../utils/food_diary_utils.dart';
 import '../widgets/macro_bars_widget.dart';
+import '../widgets/macro_summary_card.dart';
+import '../dialogs/add_food_dialog.dart';
 
 @RoutePage()
 class FoodDiaryPage extends StatefulWidget {
@@ -25,20 +28,16 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
   late TabController _tabController;
   DateTime _selectedDate = DateTime.now();
 
-  // Database DAOs
-        final DriftDietEntryDao _dietEntryDao = DriftDietEntryDao();
-        final DriftFoodDao _foodDao = DriftFoodDao();
+  final DriftDietEntryDao _dietEntryDao = DriftDietEntryDao();
+  final DriftFoodDao _foodDao = DriftFoodDao();
   
-  // Data from database
-  List<_FoodEntryData> _todaysEntries = [];
+  List<FoodEntryData> _todaysEntries = [];
   bool _isLoading = true;
   
-  // Search and sorting
   String _searchQuery = '';
-  String _sortBy = 'time'; // 'time', 'carbs', 'protein', 'fat'
-  bool _sortAscending = false; // false = newest/highest first
+  String _sortBy = 'time';
+  bool _sortAscending = false;
   
-  // Macro totals (calculated from entries)
   double _carbsConsumed = 0.0;
   double _proteinConsumed = 0.0;
   double _fatConsumed = 0.0;
@@ -46,7 +45,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
   final double _proteinGoal = 100.0;
   final double _fatGoal = 150.0;
   
-  static const int _userId = 1; // TODO: Get from auth provider
+  static const int _userId = 1;
 
   @override
   void initState() {
@@ -55,7 +54,6 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
     _loadDietEntries();
   }
   
-  /// Load diet entries from database for selected date
   Future<void> _loadDietEntries() async {
     setState(() {
       _isLoading = true;
@@ -65,15 +63,13 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
       final dateStr = _selectedDate.toIso8601String().split('T')[0];
       final entries = await _dietEntryDao.getDietEntriesByDate(_userId, dateStr);
       
-      // Convert DietEntryModel to _FoodEntryData
-      final foodEntries = <_FoodEntryData>[];
+      final foodEntries = <FoodEntryData>[];
       
       for (final entry in entries) {
-        // Get food details
-            final food = await _foodDao.getFoodById(entry.foodId);
+        final food = await _foodDao.getFoodById(entry.foodId);
         
         if (food != null) {
-          foodEntries.add(_FoodEntryData(
+          foodEntries.add(FoodEntryData(
             name: food.foodDescription,
             carbs: entry.totalCarbohydrateG,
             protein: entry.totalProteinG,
@@ -81,27 +77,19 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
             calories: entry.totalEnergyKcal,
             timestamp: DateTime.parse(entry.recordedAt),
             servingSize: '${entry.servingSizeMultiplier}x',
-            entryId: entry.entryId,
+            entryId: entry.entryId ?? 0,
           ));
         }
       }
       
-      // Calculate totals
-      double carbs = 0.0;
-      double protein = 0.0;
-      double fat = 0.0;
-      
-      for (final entry in foodEntries) {
-        carbs += entry.carbs;
-        protein += entry.protein;
-        fat += entry.fat;
-      }
+      //calculate macro totals using utility function
+      final totals = FoodDiaryUtils.calculateTotals(foodEntries);
       
       setState(() {
         _todaysEntries = foodEntries;
-        _carbsConsumed = carbs;
-        _proteinConsumed = protein;
-        _fatConsumed = fat;
+        _carbsConsumed = totals['carbs']!;
+        _proteinConsumed = totals['protein']!;
+        _fatConsumed = totals['fat']!;
         _isLoading = false;
       });
     } catch (e) {
@@ -135,9 +123,9 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Theme.of(context).colorScheme.primary,
-          labelColor: Theme.of(context).colorScheme.primary,
-          unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
           tabs: const [
             Tab(
               text: 'Today',
@@ -175,14 +163,14 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
             backgroundColor: Colors.transparent,
             elevation: 0,
             selectedItemColor: Theme.of(context).colorScheme.primary,
-            unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
             selectedLabelStyle: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
             unselectedLabelStyle: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
             items: const [
               BottomNavigationBarItem(
@@ -263,49 +251,40 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    //filter and sort entries using utility functions
+    var filteredEntries = FoodDiaryUtils.filterEntries(_todaysEntries, _searchQuery);
+    final sortedEntries = FoodDiaryUtils.sortEntries(filteredEntries, _sortBy, _sortAscending);
     
-    // Filter entries by search query
-    var filteredEntries = _todaysEntries.where((entry) {
-      if (_searchQuery.isEmpty) return true;
-      return entry.name.toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
-    
-    // Sort entries based on selected criteria
-    final sortedEntries = [...filteredEntries];
-    switch (_sortBy) {
-      case 'time':
-        sortedEntries.sort((a, b) => _sortAscending 
-          ? a.timestamp.compareTo(b.timestamp)
-          : b.timestamp.compareTo(a.timestamp));
-        break;
-      case 'carbs':
-        sortedEntries.sort((a, b) => _sortAscending
-          ? a.carbs.compareTo(b.carbs)
-          : b.carbs.compareTo(a.carbs));
-        break;
-      case 'protein':
-        sortedEntries.sort((a, b) => _sortAscending
-          ? a.protein.compareTo(b.protein)
-          : b.protein.compareTo(a.protein));
-        break;
-      case 'fat':
-        sortedEntries.sort((a, b) => _sortAscending
-          ? a.fat.compareTo(b.fat)
-          : b.fat.compareTo(a.fat));
-        break;
-    }
+    //calculate total calories
+    final totalCalories = _todaysEntries.fold<double>(
+      0,
+      (sum, entry) => sum + entry.calories,
+    );
 
     return SingleChildScrollView(
       child: Column(
         children: [
           _buildDateSelector(),
-          MacroBarsWidget(
-            carbsGrams: _carbsConsumed,
-            proteinGrams: _proteinConsumed,
-            fatGrams: _fatConsumed,
+          MacroSummaryCard(
+            carbsConsumed: _carbsConsumed,
+            proteinConsumed: _proteinConsumed,
+            fatConsumed: _fatConsumed,
+            totalCaloriesConsumed: totalCalories,
             carbsLimit: _carbsLimit,
             proteinGoal: _proteinGoal,
             fatGoal: _fatGoal,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: MacroBarsWidget(
+              carbsGrams: _carbsConsumed,
+              proteinGrams: _proteinConsumed,
+              fatGrams: _fatConsumed,
+              carbsLimit: _carbsLimit,
+              proteinGoal: _proteinGoal,
+              fatGoal: _fatGoal,
+            ),
           ),
           _buildMacroSummary(),
           _buildQuickAddSection(),
@@ -350,7 +329,10 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
             _formatDate(_selectedDate),
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ).textTheme.titleMedium?.copyWith(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const Spacer(),
           if (_isToday(_selectedDate))
@@ -364,8 +346,8 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
                 'Today',
                 style: TextStyle(
                   color: Theme.of(context).colorScheme.onPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -379,7 +361,6 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
       0,
       (sum, entry) => sum + entry.calories,
     );
-    double netCarbs = _carbsConsumed; // Net carbs = carbs (no fiber tracked)
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -397,34 +378,46 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _buildMacroSummaryItem(
-            'Calories',
+            'Total Calories',
             totalCalories.toStringAsFixed(0),
             'kcal',
+            Theme.of(context).colorScheme.primary,
           ),
-          _buildMacroSummaryItem('Net Carbs', netCarbs.toStringAsFixed(1), 'g'),
-          _buildMacroSummaryItem('Fat', _fatConsumed.toStringAsFixed(1), 'g'),
+          _buildMacroSummaryItem(
+            'Net Carbs',
+            _carbsConsumed.toStringAsFixed(1),
+            'g',
+            Colors.orange,
+          ),
+          _buildMacroSummaryItem(
+            'Fat',
+            _fatConsumed.toStringAsFixed(1),
+            'g',
+            Colors.purple,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMacroSummaryItem(String label, String value, String unit) {
+  Widget _buildMacroSummaryItem(String label, String value, String unit, Color color) {
     return Column(
       children: [
         Text(
           value,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
+            color: color,
           ),
         ),
         Text(
           unit,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
           ),
         ),
         const SizedBox(height: 4),
@@ -432,7 +425,10 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
           label,
           style: Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          ).textTheme.bodyMedium?.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -513,8 +509,9 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
               const SizedBox(width: 8),
               Text(
                 'Food Timeline',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
+                  fontSize: 18,
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
@@ -523,8 +520,10 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
                 _searchQuery.isNotEmpty 
                   ? '$filteredCount of ${_todaysEntries.length}'
                   : '${_todaysEntries.length} entries',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
                 ),
               ),
             ],
@@ -550,8 +549,8 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
                     'Searching: "$_searchQuery"',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onPrimary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -572,9 +571,10 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
             children: [
               Text(
                 'Sort by:',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.9),
                 ),
               ),
               const SizedBox(width: 8),
@@ -613,7 +613,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
     );
   }
 
-  Widget _buildFoodTimeline(List<_FoodEntryData> sortedEntries) {
+  Widget _buildFoodTimeline(List<FoodEntryData> sortedEntries) {
     if (sortedEntries.isEmpty) {
       return Container(
         margin: const EdgeInsets.all(16),
@@ -636,15 +636,17 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
             Text(
               'No food logged today',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                fontWeight: FontWeight.w500,
+                fontSize: 17,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Tap "Add Now" to log your first meal',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                fontSize: 15,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
           ],
@@ -663,13 +665,12 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
     );
   }
 
-  Widget _buildTimelineEntry(_FoodEntryData entry, bool isLast) {
+  Widget _buildTimelineEntry(FoodEntryData entry, bool isLast) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Timeline indicator
           Column(
             children: [
               Container(
@@ -725,7 +726,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
     );
   }
 
-  Widget _buildTimelineEntryContent(_FoodEntryData entry) {
+  Widget _buildTimelineEntryContent(FoodEntryData entry) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -741,8 +742,9 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
               ),
               child: Text(
                 DateFormat('h:mm a').format(entry.timestamp),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
@@ -755,17 +757,19 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
                   Text(
                     entry.name,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   if (entry.servingSize.isNotEmpty)
                     Text(
                       entry.servingSize,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontSize: 14,
                         color: Theme.of(
                           context,
-                        ).colorScheme.onSurface.withOpacity(0.7),
+                        ).colorScheme.onSurface.withOpacity(0.8),
                       ),
                     ),
                 ],
@@ -799,36 +803,12 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
         const SizedBox(height: 12),
         // Macro information
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildMacroChip('C', entry.carbs, Colors.orange),
-                  _buildMacroChip('P', entry.protein, Colors.blue),
-                  _buildMacroChip('F', entry.fat, Colors.green),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '${entry.calories.toStringAsFixed(0)}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                Text(
-                  'cal',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-              ],
-            ),
+            _buildMacroChip('C', entry.carbs, Colors.orange),
+            _buildMacroChip('P', entry.protein, Colors.blue),
+            _buildMacroChip('F', entry.fat, Colors.green),
+            _buildCalorieChip(entry.calories),
           ],
         ),
       ],
@@ -837,28 +817,66 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
 
   Widget _buildMacroChip(String label, double value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      width: 80,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.5), width: 1.5),
       ),
       child: Column(
         children: [
           Text(
             label,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: color.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${value.toStringAsFixed(0)}g',
+            style: TextStyle(
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalorieChip(double calories) {
+    return Container(
+      width: 80,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        children: [
           Text(
-            '${value.toStringAsFixed(0)}g',
+            'Cal',
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            calories.toStringAsFixed(0),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
         ],
@@ -938,11 +956,11 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
       selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
       checkmarkColor: Theme.of(context).colorScheme.primary,
       labelStyle: TextStyle(
-        fontSize: 11,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 13,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
         color: isSelected 
           ? Theme.of(context).colorScheme.primary
-          : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          : Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -981,7 +999,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
     if (!mounted) return;
     final result = await showDialog<FoodModel>(
       context: context,
-      builder: (context) => _AddFoodDialog(),
+      builder: (context) => const AddFoodDialog(),
     );
 
     if (result != null) {
@@ -1005,7 +1023,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
         // Create diet entry for today
         final now = DateTime.now();
         final dateStr = now.toIso8601String().split('T')[0];
-        final netCarbs = result.netCarbsG ?? (result.totalCarbohydrateG - (result.dietaryFiberG ?? 0.0));
+        final netCarbs = result.netCarbsG ?? result.totalCarbohydrateG;
         
         final dietEntry = DietEntryModel(
           userId: userId,
@@ -1079,20 +1097,10 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
     }
   }
 
-  Future<void> _editFoodEntry(_FoodEntryData entry) async {
-    if (entry.entryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot edit entry: missing entry ID'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
+  Future<void> _editFoodEntry(FoodEntryData entry) async {
     // Get the full diet entry from database
     try {
-      final dietEntry = await _dietEntryDao.getDietEntryById(entry.entryId!);
+      final dietEntry = await _dietEntryDao.getDietEntryById(entry.entryId);
 
       if (dietEntry == null) {
         if (!mounted) return;
@@ -1132,7 +1140,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
       if (result != null) {
         // Update or delete
         if (result['action'] == 'delete') {
-          await _deleteDietEntry(entry.entryId!);
+          await _deleteDietEntry(entry.entryId);
         } else if (result['action'] == 'update') {
           await _updateDietEntry(
             dietEntry,
@@ -1220,9 +1228,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
     }
   }
 
-  Future<void> _confirmDeleteEntry(_FoodEntryData entry) async {
-    if (entry.entryId == null) return;
-
+  Future<void> _confirmDeleteEntry(FoodEntryData entry) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1243,7 +1249,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
     );
 
     if (confirmed == true) {
-      await _deleteDietEntry(entry.entryId!);
+      await _deleteDietEntry(entry.entryId);
     }
   }
 
@@ -1271,436 +1277,6 @@ class _FoodDiaryPageState extends State<FoodDiaryPage>
         ),
       );
     }
-  }
-}
-
-/// Dialog for adding a new food
-class _AddFoodDialog extends StatefulWidget {
-  @override
-  State<_AddFoodDialog> createState() => _AddFoodDialogState();
-}
-
-class _AddFoodDialogState extends State<_AddFoodDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _proteinController = TextEditingController(text: '0');
-  final _fatController = TextEditingController(text: '0');
-  final _carbsController = TextEditingController(text: '0');
-  final _searchController = TextEditingController();
-
-  double _netCarbs = 0.0;
-  double _calculatedCalories = 0.0;
-  bool _showCustomForm = false;
-
-  // Hard-coded list of suggested foods to simulate DB
-  late final List<FoodModel> _suggestedFoods = [
-    FoodModel(
-      foodDescription: 'Grilled Chicken Breast (100g)',
-      energyKcal: 165.0,
-      totalProteinG: 31.0,
-      totalFatG: 4.0,
-      totalCarbohydrateG: 0.0,
-      dietaryFiberG: 0.0,
-      source: 'ncc',
-    ),
-    FoodModel(
-      foodDescription: 'Avocado (100g)',
-      energyKcal: 160.0,
-      totalProteinG: 2.0,
-      totalFatG: 15.0,
-      totalCarbohydrateG: 9.0,
-      dietaryFiberG: 7.0,
-      source: 'ncc',
-    ),
-    FoodModel(
-      foodDescription: 'Almonds (28g)',
-      energyKcal: 164.0,
-      totalProteinG: 6.0,
-      totalFatG: 14.0,
-      totalCarbohydrateG: 6.0,
-      dietaryFiberG: 3.0,
-      source: 'ncc',
-    ),
-    FoodModel(
-      foodDescription: 'Broccoli (100g)',
-      energyKcal: 55.0,
-      totalProteinG: 3.7,
-      totalFatG: 0.6,
-      totalCarbohydrateG: 11.1,
-      dietaryFiberG: 3.8,
-      source: 'ncc',
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _carbsController.addListener(_updateMacros);
-    _proteinController.addListener(_updateMacros);
-    _fatController.addListener(_updateMacros);
-    _searchController.addListener(() => setState(() {}));
-    // Initialize calculations with default values
-    _updateMacros();
-  }
-
-  void _updateMacros() {
-    // Recalculate net carbs and calories whenever macros change
-    final carbs = double.tryParse(_carbsController.text) ?? 0.0;
-    final protein = double.tryParse(_proteinController.text) ?? 0.0;
-    final fat = double.tryParse(_fatController.text) ?? 0.0;
-
-    // Net carbs = carbs (no fiber subtraction)
-    final netCarbs = carbs < 0 ? 0.0 : carbs;
-
-    // Calculate calories: protein(4 kcal/g) + carbs(4 kcal/g) + fat(9 kcal/g)
-    final calories = (protein * 4.0) + (netCarbs * 4.0) + (fat * 9.0);
-    final cal = calories < 0 ? 0.0 : calories;
-
-    setState(() {
-      _netCarbs = netCarbs;
-      _calculatedCalories = cal;
-    });
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _proteinController.removeListener(_updateMacros);
-    _proteinController.dispose();
-    _fatController.removeListener(_updateMacros);
-    _fatController.dispose();
-    _carbsController.removeListener(_updateMacros);
-    _carbsController.dispose();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _submitCustom() {
-    if (_formKey.currentState!.validate()) {
-      final protein = double.tryParse(_proteinController.text) ?? 0.0;
-      final fat = double.tryParse(_fatController.text) ?? 0.0;
-      final carbs = double.tryParse(_carbsController.text) ?? 0.0;
-
-      final food = FoodModel(
-        foodDescription: _nameController.text.trim(),
-        energyKcal: _calculatedCalories,
-        totalProteinG: protein,
-        totalFatG: fat,
-        totalCarbohydrateG: carbs,
-        dietaryFiberG: 0.0,
-        source: 'user',
-        isKetoFriendly: _netCarbs <= 20 ? 1 : 0,
-      );
-
-      Navigator.of(context).pop(food);
-    }
-  }
-
-  double _calculateNetCarbs() {
-    final carbs = double.tryParse(_carbsController.text) ?? 0.0;
-    return carbs;
-  }
-
-  bool _isValidName(String? value) {
-    if (value == null || value.trim().isEmpty) return false;
-    // Allow letters, numbers, spaces, commas, parentheses, hyphens and periods
-    final validNameRegExp = RegExp(r'^[A-Za-z0-9\s,().\-]+$');
-    return validNameRegExp.hasMatch(value.trim());
-  }
-
-  List<FoodModel> get _filteredSuggestions {
-    final q = _searchController.text.toLowerCase().trim();
-    if (q.isEmpty) return _suggestedFoods;
-    return _suggestedFoods.where((f) => f.foodDescription.toLowerCase().contains(q)).toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Get screen size for responsive dialog
-    final screenSize = MediaQuery.of(context).size;
-    final dialogWidth = screenSize.width * 0.85;
-    final dialogHeight = screenSize.height * 0.8;
-
-    return Dialog(
-      child: SizedBox(
-        width: dialogWidth,
-        height: dialogHeight,
-        child: Scaffold(
-          appBar: AppBar(
-            title: const Text('Add Food'),
-            elevation: 0,
-          ),
-          body: SizedBox.expand(
-            child: Column(
-              children: [
-                if (!_showCustomForm)
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: const InputDecoration(
-                              prefixIcon: Icon(Icons.search),
-                              hintText: 'Search foods...',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                            child: SizedBox(
-                              width: double.maxFinite,
-                              child: _filteredSuggestions.isEmpty
-                                  ? Center(
-                                      child: Text(
-                                        'No foods match your search',
-                                        style: Theme.of(context).textTheme.bodyMedium,
-                                      ),
-                                    )
-                                  : ListView.separated(
-                                      itemCount: _filteredSuggestions.length,
-                                      separatorBuilder: (c, i) => const Divider(height: 1),
-                                      itemBuilder: (c, i) {
-                                        final f = _filteredSuggestions[i];
-                                        return ListTile(
-                                          title: Text(f.foodDescription),
-                                          subtitle: Row(
-                                            children: [
-                                              Chip(
-                                                label: Text('C: ${f.totalCarbohydrateG.toStringAsFixed(1)}g'),
-                                                backgroundColor: Colors.orange.shade50,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Chip(
-                                                label: Text('P: ${f.totalProteinG.toStringAsFixed(1)}g'),
-                                                backgroundColor: Colors.blue.shade50,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Chip(
-                                                label: Text('F: ${f.totalFatG.toStringAsFixed(1)}g'),
-                                                backgroundColor: Colors.green.shade50,
-                                              ),
-                                            ],
-                                          ),
-                                          onTap: () => Navigator.of(context).pop(f),
-                                        );
-                                      },
-                                    ),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: const Text('Cancel'),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton(
-                                onPressed: () => setState(() => _showCustomForm = true),
-                                child: const Text('Add Custom Food'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              TextFormField(
-                                controller: _nameController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Food Name *',
-                                  hintText: 'e.g., Grilled Chicken Breast',
-                                  border: OutlineInputBorder(),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Please enter a food name';
-                                  }
-                                  if (!_isValidName(value)) {
-                                    return 'Invalid characters in name';
-                                  }
-                                  return null;
-                                },
-                                textCapitalization: TextCapitalization.words,
-                              ),
-                              const SizedBox(height: 16),
-                              // Large, prominent calories display (auto-calculated)
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Calories (auto)',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '${_calculatedCalories.toStringAsFixed(0)} kcal',
-                                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(context).colorScheme.primary,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              // Macros inputs in 2-column grid layout
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: _proteinController,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Protein (g) *',
-                                        hintText: '0',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) return 'Required';
-                                        final n = double.tryParse(value);
-                                        if (n == null) return 'Invalid';
-                                        if (n < 0) return 'No negatives';
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: _fatController,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Fat (g) *',
-                                        hintText: '0',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                      keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) return 'Required';
-                                        final n = double.tryParse(value);
-                                        if (n == null) return 'Invalid';
-                                        if (n < 0) return 'No negatives';
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              TextFormField(
-                                controller: _carbsController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Carbs (g) *',
-                                  hintText: '0',
-                                  border: OutlineInputBorder(),
-                                ),
-                                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) return 'Required';
-                                  final n = double.tryParse(value);
-                                  if (n == null) return 'Invalid';
-                                  if (n < 0) return 'No negatives';
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: _netCarbs <= 20
-                                      ? Colors.green.shade50
-                                      : Colors.orange.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: _netCarbs <= 20
-                                        ? Colors.green.shade300
-                                        : Colors.orange.shade300,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _netCarbs <= 20 ? Icons.check_circle : Icons.info,
-                                      color: _netCarbs <= 20 ? Colors.green : Colors.orange,
-                                      size: 24,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Net Carbs',
-                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            color: _netCarbs <= 20 ? Colors.green.shade700 : Colors.orange.shade700,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '${_netCarbs.toStringAsFixed(1)}g',
-                                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: _netCarbs <= 20 ? Colors.green.shade700 : Colors.orange.shade700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  TextButton(
-                                    onPressed: () => setState(() => _showCustomForm = false),
-                                    child: const Text('Back'),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  ElevatedButton(
-                                    onPressed: _submitCustom,
-                                    child: const Text('Add Food'),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -2073,28 +1649,6 @@ class _EditDietEntryDialogState extends State<_EditDietEntryDialog> {
   }
 }
 
-class _FoodEntryData {
-  final String name;
-  final double carbs;
-  final double protein;
-  final double fat;
-  final double calories;
-  final DateTime timestamp;
-  final String servingSize;
-  final int? entryId; // For editing/deleting
-
-  _FoodEntryData({
-    required this.name,
-    required this.carbs,
-    required this.protein,
-    required this.fat,
-    required this.calories,
-    required this.timestamp,
-    required this.servingSize,
-    this.entryId,
-  });
-}
-
 /// Weekly History View Widget
 class _WeeklyHistoryView extends StatefulWidget {
   final DriftDietEntryDao dietEntryDao;
@@ -2239,6 +1793,7 @@ class _WeeklyHistoryViewState extends State<_WeeklyHistoryView> {
                         Text(
                           weekRange,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontSize: 17,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
@@ -2247,7 +1802,8 @@ class _WeeklyHistoryViewState extends State<_WeeklyHistoryView> {
                         Text(
                           'Tap to select week',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            fontSize: 13,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -2387,7 +1943,10 @@ class _WeeklyHistoryViewState extends State<_WeeklyHistoryView> {
         ),
         Text(
           unit,
-          style: Theme.of(context).textTheme.bodySmall,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -2447,10 +2006,11 @@ class _WeeklyHistoryViewState extends State<_WeeklyHistoryView> {
                     Text(
                       dayName,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                         color: isToday
                             ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                       ),
                     ),
                     Text(
