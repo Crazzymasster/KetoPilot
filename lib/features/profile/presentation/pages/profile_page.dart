@@ -23,18 +23,25 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   late TextEditingController _targetProteinController;
   late TextEditingController _targetFatController;
   late TextEditingController _targetCaloriesController;
-  
+
   String? _selectedGender;
   DateTime? _selectedDateOfBirth;
   DateTime? _ketoStartDate;
   bool _isEditing = false;
   bool _isSaving = false;
 
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+    return emailRegex.hasMatch(email);
+  }
+
   @override
   void initState() {
     super.initState();
     final user = ref.read(userProvider.notifier).currentUser;
-    
+
     _fullNameController = TextEditingController(text: user?.fullName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _heightController = TextEditingController(
@@ -55,7 +62,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     _targetCaloriesController = TextEditingController(
       text: user?.targetCalories?.toString() ?? '',
     );
-    
+
     _selectedGender = user?.gender;
     if (user?.dateOfBirth != null) {
       _selectedDateOfBirth = DateTime.tryParse(user!.dateOfBirth!);
@@ -81,13 +88,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Future<void> _selectDate(BuildContext context, bool isDateOfBirth) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: isDateOfBirth 
+      initialDate: isDateOfBirth
           ? (_selectedDateOfBirth ?? DateTime(1990))
           : (_ketoStartDate ?? DateTime.now()),
       firstDate: DateTime(1920),
       lastDate: DateTime.now(),
     );
-    
+
     if (picked != null) {
       setState(() {
         if (isDateOfBirth) {
@@ -99,6 +106,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
   }
 
+  String? _validateNonNegativeNumber(String? value, String fieldName) {
+    if (value == null || value.trim().isEmpty) return null;
+    final parsed = double.tryParse(value.trim());
+    if (parsed == null) {
+      return 'Please enter a valid $fieldName';
+    }
+    if (parsed < 0) {
+      return '$fieldName cannot be negative';
+    }
+    return null;
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -107,30 +126,33 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     try {
       final userNotifier = ref.read(userProvider.notifier);
       final currentUser = userNotifier.currentUser;
-      
+
       if (currentUser == null) return;
 
       final updatedUser = currentUser.copyWith(
-        fullName: _fullNameController.text.trim().isEmpty 
-            ? null 
+        email: _emailController.text.trim().isEmpty
+            ? currentUser.email
+            : _emailController.text.trim(),
+        fullName: _fullNameController.text.trim().isEmpty
+            ? null
             : _fullNameController.text.trim(),
         gender: _selectedGender,
         dateOfBirth: _selectedDateOfBirth?.toIso8601String().split('T')[0],
-        heightCm: _heightController.text.isEmpty 
-            ? null 
+        heightCm: _heightController.text.isEmpty
+            ? null
             : double.tryParse(_heightController.text),
-        initialWeightKg: _weightController.text.isEmpty 
-            ? null 
+        initialWeightKg: _weightController.text.isEmpty
+            ? null
             : double.tryParse(_weightController.text),
         targetNetCarbs: double.tryParse(_targetCarbsController.text) ?? 20.0,
-        targetProtein: _targetProteinController.text.isEmpty 
-            ? null 
+        targetProtein: _targetProteinController.text.isEmpty
+            ? null
             : double.tryParse(_targetProteinController.text),
-        targetFat: _targetFatController.text.isEmpty 
-            ? null 
+        targetFat: _targetFatController.text.isEmpty
+            ? null
             : double.tryParse(_targetFatController.text),
-        targetCalories: _targetCaloriesController.text.isEmpty 
-            ? null 
+        targetCalories: _targetCaloriesController.text.isEmpty
+            ? null
             : double.tryParse(_targetCaloriesController.text),
         ketoStartDate: _ketoStartDate?.toIso8601String().split('T')[0],
         updatedAt: DateTime.now().toIso8601String(),
@@ -159,10 +181,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -178,9 +197,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     final user = userState.currentUser;
 
     if (user == null) {
-      return const Scaffold(
-        body: Center(child: Text('No user logged in')),
-      );
+      return const Scaffold(body: Center(child: Text('No user logged in')));
     }
 
     return Scaffold(
@@ -198,7 +215,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               onPressed: () => setState(() => _isEditing = false),
             ),
             IconButton(
-              icon: _isSaving 
+              icon: _isSaving
                   ? const SizedBox(
                       width: 20,
                       height: 20,
@@ -233,7 +250,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       bottom: 0,
                       right: 0,
                       child: CircleAvatar(
-                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.secondary,
                         child: Icon(
                           Icons.camera_alt,
                           color: Theme.of(context).colorScheme.onSecondary,
@@ -248,9 +267,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             // Basic Information
             Text(
               'Basic Information',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -272,7 +291,16 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.email),
               ),
-              enabled: false, // Email can't be changed
+              enabled: _isEditing,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter your email';
+                }
+                if (!_isValidEmail(value.trim())) {
+                  return 'Please enter a valid email address';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
 
@@ -287,9 +315,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               items: ['Male', 'Female', 'Other'].map((gender) {
                 return DropdownMenuItem(value: gender, child: Text(gender));
               }).toList(),
-              onChanged: _isEditing ? (value) {
-                setState(() => _selectedGender = value);
-              } : null,
+              onChanged: _isEditing
+                  ? (value) {
+                      setState(() => _selectedGender = value);
+                    }
+                  : null,
             ),
             const SizedBox(height: 16),
 
@@ -314,9 +344,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             // Physical Stats
             Text(
               'Physical Stats',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -332,6 +362,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     ),
                     keyboardType: TextInputType.number,
                     enabled: _isEditing,
+                    validator: (value) =>
+                        _validateNonNegativeNumber(value, 'height'),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -345,6 +377,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     ),
                     keyboardType: TextInputType.number,
                     enabled: _isEditing,
+                    validator: (value) =>
+                        _validateNonNegativeNumber(value, 'weight'),
                   ),
                 ),
               ],
@@ -354,9 +388,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             // Keto Journey
             Text(
               'Keto Journey',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -380,9 +414,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             // Nutrition Targets
             Text(
               'Daily Nutrition Targets',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 

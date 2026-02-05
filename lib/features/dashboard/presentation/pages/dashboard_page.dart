@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/themes/app_theme.dart';
@@ -25,12 +26,13 @@ class DashboardPage extends ConsumerStatefulWidget {
 class _DashboardPageState extends ConsumerState<DashboardPage> {
   int _selectedIndex = 0;
   final DriftDietEntryDao _dietEntryDao = DriftDietEntryDao();
-  
+  bool _profileSetupShown = false;
+
   bool _isLoadingNutrition = true;
   double _todayCarbs = 0.0;
   double _todayProtein = 0.0;
   double _todayFat = 0.0;
-  
+
   double _carbsLimit = 20.0;
   double _proteinGoal = 100.0;
   double _fatGoal = 150.0;
@@ -40,6 +42,33 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     super.initState();
     _loadUserTargets();
     _loadTodaysNutrition();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowProfileSetup();
+    });
+  }
+
+  Future<void> _maybeShowProfileSetup() async {
+    if (_profileSetupShown) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final hasCompleted = prefs.getBool('profile_setup_completed') ?? false;
+    if (hasCompleted) return;
+
+    final user = ref.read(userProvider).currentUser;
+    if (user == null) return;
+
+    _profileSetupShown = true;
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ProfileSetupDialog(
+        onCompleted: () async {
+          await prefs.setBool('profile_setup_completed', true);
+        },
+      ),
+    );
   }
 
   void _loadUserTargets() {
@@ -56,26 +85,29 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Future<void> _loadTodaysNutrition() async {
     final user = ref.read(userProvider).currentUser;
     if (user?.userId == null) return;
-    
+
     setState(() {
       _isLoadingNutrition = true;
     });
-    
+
     try {
       final now = DateTime.now();
       final dateStr = now.toIso8601String().split('T')[0];
-      final entries = await _dietEntryDao.getDietEntriesByDate(user!.userId!, dateStr);
-      
+      final entries = await _dietEntryDao.getDietEntriesByDate(
+        user!.userId!,
+        dateStr,
+      );
+
       double carbs = 0.0;
       double protein = 0.0;
       double fat = 0.0;
-      
+
       for (final entry in entries) {
         carbs += entry.totalCarbohydrateG;
         protein += entry.totalProteinG;
         fat += entry.totalFatG;
       }
-      
+
       setState(() {
         _todayCarbs = carbs;
         _todayProtein = protein;
@@ -155,7 +187,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             backgroundColor: Colors.transparent,
             elevation: 0,
             selectedItemColor: Theme.of(context).colorScheme.primary,
-            unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            unselectedItemColor: Theme.of(
+              context,
+            ).colorScheme.onSurface.withOpacity(0.6),
             selectedLabelStyle: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -219,7 +253,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         },
         backgroundColor: Theme.of(context).colorScheme.primary,
         elevation: 4,
-        child: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary, size: 28),
+        child: Icon(
+          Icons.add,
+          color: Theme.of(context).colorScheme.onPrimary,
+          size: 28,
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
@@ -249,7 +287,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.2),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onPrimary.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(25),
                 ),
                 child: Icon(
@@ -275,7 +315,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     Text(
                       'How are you feeling today?',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.9),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary.withOpacity(0.9),
                       ),
                     ),
                   ],
@@ -375,7 +417,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           children: [
             Row(
               children: [
-                Icon(Icons.analytics, color: Theme.of(context).colorScheme.primary, size: 24),
+                Icon(
+                  Icons.analytics,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 24,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   'Glucose-Ketone Index',
@@ -479,9 +525,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
           ),
         ],
       ),
@@ -581,7 +627,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.7),
                   fontSize: 11,
                 ),
                 maxLines: 2,
@@ -834,9 +882,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         ),
         subtitle: Text(
           'Glucose: ${glucose.toStringAsFixed(0)} mg/dL • Ketones: ${ketones.toStringAsFixed(1)} mmol/L',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          ),
         ),
         trailing: Icon(
           gki <= 3.0 ? Icons.check_circle : Icons.info,
@@ -868,7 +916,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Icon(
@@ -890,14 +940,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         Text(
                           'Learn how to interpret your glucose-ketone index for optimal health.',
                           style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.7),
+                              ),
                         ),
                       ],
                     ),
                   ),
                   Icon(
                     Icons.arrow_forward_ios,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.5),
                     size: 16,
                   ),
                 ],
@@ -924,5 +980,487 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         context.router.pushNamed('/settings');
         break;
     }
+  }
+}
+
+class ProfileSetupDialog extends ConsumerStatefulWidget {
+  const ProfileSetupDialog({super.key, required this.onCompleted});
+
+  final Future<void> Function() onCompleted;
+
+  @override
+  ConsumerState<ProfileSetupDialog> createState() => _ProfileSetupDialogState();
+}
+
+class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
+  final _dobFormKey = GlobalKey<FormState>();
+  final _genderFormKey = GlobalKey<FormState>();
+  int _currentStep = 0;
+  bool _isSaving = false;
+  String? _selectedGender;
+  DateTime? _selectedDateOfBirth;
+  DateTime? _ketoStartDate;
+  late TextEditingController _heightController;
+  late TextEditingController _weightController;
+  late TextEditingController _targetCarbsController;
+  late TextEditingController _targetProteinController;
+  late TextEditingController _targetFatController;
+  late TextEditingController _targetCaloriesController;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(userProvider).currentUser;
+    _selectedGender = user?.gender;
+    if (user?.dateOfBirth != null) {
+      _selectedDateOfBirth = DateTime.tryParse(user!.dateOfBirth!);
+    }
+    if (user?.ketoStartDate != null) {
+      _ketoStartDate = DateTime.tryParse(user!.ketoStartDate!);
+    }
+
+    _heightController = TextEditingController(
+      text: user?.heightCm?.toString() ?? '',
+    );
+    _weightController = TextEditingController(
+      text: user?.initialWeightKg?.toString() ?? '',
+    );
+    _targetCarbsController = TextEditingController(
+      text: user?.targetNetCarbs.toString() ?? '20',
+    );
+    _targetProteinController = TextEditingController(
+      text: user?.targetProtein?.toString() ?? '',
+    );
+    _targetFatController = TextEditingController(
+      text: user?.targetFat?.toString() ?? '',
+    );
+    _targetCaloriesController = TextEditingController(
+      text: user?.targetCalories?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _heightController.dispose();
+    _weightController.dispose();
+    _targetCarbsController.dispose();
+    _targetProteinController.dispose();
+    _targetFatController.dispose();
+    _targetCaloriesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDateOfBirth() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateOfBirth ?? DateTime(1990),
+      firstDate: DateTime(1920),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked != null) {
+      setState(() => _selectedDateOfBirth = picked);
+    }
+  }
+
+  Future<void> _selectKetoStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _ketoStartDate ?? DateTime.now(),
+      firstDate: DateTime(1920),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked != null) {
+      setState(() => _ketoStartDate = picked);
+    }
+  }
+
+  String? _validateNonNegativeNumber(String? value, String fieldName) {
+    if (value == null || value.trim().isEmpty) return null;
+    final parsed = double.tryParse(value.trim());
+    if (parsed == null) {
+      return 'Please enter a valid $fieldName';
+    }
+    if (parsed < 0) {
+      return '$fieldName cannot be negative';
+    }
+    return null;
+  }
+
+  double? _parseOptionalDouble(String value) {
+    if (value.trim().isEmpty) return null;
+    return double.tryParse(value.trim());
+  }
+
+  Future<void> _completeSetup() async {
+    if (_selectedDateOfBirth == null) {
+      setState(() => _currentStep = 0);
+      return;
+    }
+    if (_selectedGender == null || _selectedGender!.isEmpty) {
+      setState(() => _currentStep = 1);
+      return;
+    }
+
+    final user = ref.read(userProvider).currentUser;
+    if (user == null) return;
+
+    setState(() => _isSaving = true);
+
+    final updatedUser = user.copyWith(
+      gender: _selectedGender,
+      dateOfBirth: _selectedDateOfBirth?.toIso8601String().split('T')[0],
+      heightCm: _parseOptionalDouble(_heightController.text),
+      initialWeightKg: _parseOptionalDouble(_weightController.text),
+      targetNetCarbs: _parseOptionalDouble(_targetCarbsController.text) ?? 20.0,
+      targetProtein: _parseOptionalDouble(_targetProteinController.text),
+      targetFat: _parseOptionalDouble(_targetFatController.text),
+      targetCalories: _parseOptionalDouble(_targetCaloriesController.text),
+      ketoStartDate: _ketoStartDate?.toIso8601String().split('T')[0],
+      updatedAt: DateTime.now().toIso8601String(),
+    );
+
+    final success = await ref
+        .read(userProvider.notifier)
+        .updateProfile(updatedUser);
+
+    if (!mounted) return;
+
+    if (success) {
+      await widget.onCompleted();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to save profile. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+
+    if (mounted) {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  Widget _buildStepHeader(BuildContext context) {
+    final labels = ['DOB', 'Gender', 'Physical', 'Keto'];
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 16,
+      runSpacing: 8,
+      children: List.generate(labels.length, (index) {
+        final isActive = _currentStep == index;
+        final isComplete = _currentStep > index;
+        final color = isActive || isComplete
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.outline;
+        final textColor = isActive || isComplete
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.onSurfaceVariant;
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: isActive
+                    ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: color, width: 1.4),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${index + 1}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              labels[index],
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: textColor,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildStepContent() {
+    switch (_currentStep) {
+      case 0:
+        return Form(
+          key: _dobFormKey,
+          child: FormField<DateTime>(
+            validator: (_) {
+              if (_selectedDateOfBirth == null) {
+                return 'Please select your date of birth';
+              }
+              return null;
+            },
+            builder: (state) => InkWell(
+              onTap: _selectDateOfBirth,
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: 'Date of Birth',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.cake),
+                  errorText: state.errorText,
+                ),
+                child: Text(
+                  _selectedDateOfBirth != null
+                      ? '${_selectedDateOfBirth!.year}-${_selectedDateOfBirth!.month.toString().padLeft(2, '0')}-${_selectedDateOfBirth!.day.toString().padLeft(2, '0')}'
+                      : 'Select date',
+                ),
+              ),
+            ),
+          ),
+        );
+      case 1:
+        return Form(
+          key: _genderFormKey,
+          child: DropdownButtonFormField<String>(
+            value: _selectedGender,
+            decoration: const InputDecoration(
+              labelText: 'Gender',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.wc),
+            ),
+            items: ['Male', 'Female', 'Other'].map((gender) {
+              return DropdownMenuItem(value: gender, child: Text(gender));
+            }).toList(),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please select a gender';
+              }
+              return null;
+            },
+            onChanged: (value) => setState(() => _selectedGender = value),
+          ),
+        );
+      case 2:
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 420;
+            final heightField = TextFormField(
+              controller: _heightController,
+              decoration: const InputDecoration(
+                labelText: 'Height (cm)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.height),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+                  _validateNonNegativeNumber(value, 'height'),
+            );
+            final weightField = TextFormField(
+              controller: _weightController,
+              decoration: const InputDecoration(
+                labelText: 'Weight (kg)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.monitor_weight),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+                  _validateNonNegativeNumber(value, 'weight'),
+            );
+
+            return Column(
+              children: [
+                if (isNarrow) ...[
+                  heightField,
+                  const SizedBox(height: 16),
+                  weightField,
+                ] else
+                  Row(
+                    children: [
+                      Expanded(child: heightField),
+                      const SizedBox(width: 16),
+                      Expanded(child: weightField),
+                    ],
+                  ),
+              ],
+            );
+          },
+        );
+      default:
+        return Column(
+          children: [
+            InkWell(
+              onTap: _selectKetoStartDate,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Keto Start Date (Optional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.calendar_today),
+                ),
+                child: Text(
+                  _ketoStartDate != null
+                      ? '${_ketoStartDate!.year}-${_ketoStartDate!.month.toString().padLeft(2, '0')}-${_ketoStartDate!.day.toString().padLeft(2, '0')}'
+                      : 'Select date',
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _targetCarbsController,
+              decoration: const InputDecoration(
+                labelText: 'Target Net Carbs (g)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.grain),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+                  _validateNonNegativeNumber(value, 'target net carbs'),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _targetProteinController,
+              decoration: const InputDecoration(
+                labelText: 'Target Protein (g) (Optional)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.egg),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+                  _validateNonNegativeNumber(value, 'target protein'),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _targetFatController,
+              decoration: const InputDecoration(
+                labelText: 'Target Fat (g) (Optional)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.oil_barrel),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+                  _validateNonNegativeNumber(value, 'target fat'),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _targetCaloriesController,
+              decoration: const InputDecoration(
+                labelText: 'Target Calories (Optional)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.local_fire_department),
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+                  _validateNonNegativeNumber(value, 'target calories'),
+            ),
+          ],
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final maxWidth = media.size.width < 560 ? media.size.width * 0.92 : 520.0;
+    final maxHeight = media.size.height * 0.68;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Complete your profile',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'We only ask this once. Required fields help personalize your recommendations.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildStepHeader(context),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: _buildStepContent(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FilledButton(
+                    onPressed: _isSaving
+                        ? null
+                        : () {
+                            if (_currentStep == 0) {
+                              if (_dobFormKey.currentState?.validate() !=
+                                  true) {
+                                return;
+                              }
+                              setState(() => _currentStep = 1);
+                              return;
+                            }
+                            if (_currentStep == 1) {
+                              if (_genderFormKey.currentState?.validate() !=
+                                  true) {
+                                return;
+                              }
+                              setState(() => _currentStep = 2);
+                              return;
+                            }
+                            if (_currentStep < 3) {
+                              setState(() => _currentStep += 1);
+                            } else {
+                              _completeSetup();
+                            }
+                          },
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(_currentStep == 3 ? 'Finish' : 'Continue'),
+                  ),
+                  const SizedBox(width: 12),
+                  if (_currentStep > 0)
+                    TextButton(
+                      onPressed:
+                          _isSaving ? null : () => setState(() => _currentStep -= 1),
+                      child: const Text('Back'),
+                    ),
+                  if (_currentStep >= 2)
+                    TextButton(
+                      onPressed: _isSaving ? null : _completeSetup,
+                      child: const Text('Skip optional'),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -50,6 +50,9 @@ dependencies:
   shared_preferences: ^2.2.2
   sqflite: ^2.3.0  # Keep for gradual migration, can remove later
   
+  # Supabase - Cloud backend
+  supabase_flutter: ^2.5.6
+  
   # Cross-platform database (works on web, mobile, desktop)
   drift: ^2.14.0
   path_provider: ^2.1.1

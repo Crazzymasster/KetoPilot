@@ -8,17 +8,26 @@ import 'core/database/services/food_database_seeder.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/user_provider.dart';
 import 'core/config/email_config.dart';
+import 'core/services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // Initialize Supabase
+  try {
+    await SupabaseService().initialize();
+    debugPrint('[MAIN] ✅ Supabase initialized');
+  } catch (e) {
+    debugPrint('[MAIN] ❌ Supabase initialization error: $e');
+  }
+
   // Initialize database in background (non-blocking)
   // This allows the app to start immediately while DB initializes
   _initializeDatabaseAsync();
-  
+
   EmailConfig.configureGmail(
     email: 'ketoapp00@gmail.com',
-    appPassword: 'rxvrkjbanthiaeif',  
+    appPassword: 'rxvrkjbanthiaeif',
   );
 
   // Start app immediately without waiting for database
@@ -35,7 +44,7 @@ void _initializeDatabaseAsync() {
       // Pre-initialize in background (non-blocking)
       await driftService.database;
       debugPrint('[MAIN] ✅ Database ready');
-      
+
       // Seed the database with NCC sample foods if empty
       final seeder = FoodDatabaseSeeder();
       await seeder.seedIfNeeded();
@@ -68,12 +77,12 @@ class _MetabolicHealthAppState extends ConsumerState<MetabolicHealthApp> {
 
   Future<void> _checkAuth() async {
     final userNotifier = ref.read(userProvider.notifier);
-    
+
     // Wait for user provider to finish loading
     while (userNotifier.isLoading) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
-    
+
     // If user is authenticated, navigate to dashboard
     if (userNotifier.isAuthenticated && mounted) {
       _appRouter.replace(const DashboardRoute());

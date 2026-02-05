@@ -21,37 +21,86 @@ class DriftUserDao {
   Future<int> insertUser(UserModel user) async {
     try {
       final db = await _db;
-      final id = await db.into(db.users).insert(
-        UsersCompanion(
-          email: Value(user.email),
-          passwordHash: Value(user.passwordHash),
-          emailVerified: Value(user.emailVerified),
-          fullName: Value(user.fullName),
-          dateOfBirth: Value(user.dateOfBirth),
-          gender: Value(user.gender),
-          heightCm: Value(user.heightCm),
-          initialWeightKg: Value(user.initialWeightKg),
-          targetNetCarbs: Value(user.targetNetCarbs),
-          targetProtein: Value(user.targetProtein),
-          targetFat: Value(user.targetFat),
-          targetCalories: Value(user.targetCalories),
-          ketoStartDate: Value(user.ketoStartDate),
-          medicalConditions: Value(user.medicalConditions),
-          goals: Value(user.goals),
-          iotDevices: Value(user.iotDevices),
-          foodCreationCount: Value(user.foodCreationCount),
-          foodCreationWindowStart: Value(user.foodCreationWindowStart),
-          maxFoodsPerWindow: Value(user.maxFoodsPerWindow),
-          windowDurationDays: Value(user.windowDurationDays),
-          researchConsent: Value(user.researchConsent),
-          dataSharingConsent: Value(user.dataSharingConsent),
-          anonymousId: Value(user.anonymousId),
-          lastLogin: Value(user.lastLogin),
-        ),
-      );
+      final id = await db
+          .into(db.users)
+          .insert(
+            UsersCompanion(
+              email: Value(user.email),
+              passwordHash: Value(user.passwordHash),
+              emailVerified: Value(user.emailVerified),
+              fullName: Value(user.fullName),
+              dateOfBirth: Value(user.dateOfBirth),
+              gender: Value(user.gender),
+              heightCm: Value(user.heightCm),
+              initialWeightKg: Value(user.initialWeightKg),
+              targetNetCarbs: Value(user.targetNetCarbs),
+              targetProtein: Value(user.targetProtein),
+              targetFat: Value(user.targetFat),
+              targetCalories: Value(user.targetCalories),
+              ketoStartDate: Value(user.ketoStartDate),
+              medicalConditions: Value(user.medicalConditions),
+              goals: Value(user.goals),
+              iotDevices: Value(user.iotDevices),
+              foodCreationCount: Value(user.foodCreationCount),
+              foodCreationWindowStart: Value(user.foodCreationWindowStart),
+              maxFoodsPerWindow: Value(user.maxFoodsPerWindow),
+              windowDurationDays: Value(user.windowDurationDays),
+              researchConsent: Value(user.researchConsent),
+              dataSharingConsent: Value(user.dataSharingConsent),
+              anonymousId: Value(user.anonymousId),
+              lastLogin: Value(user.lastLogin),
+            ),
+          );
       return id;
     } catch (e) {
       debugPrint('[USER DAO] ❌ Insert error: $e');
+      rethrow;
+    }
+  }
+
+  //inserts or updates a user based on unique constraints
+  Future<int> upsertUser(UserModel user) async {
+    try {
+      final existing = user.anonymousId == null
+          ? null
+          : await getUserByAnonymousId(user.anonymousId!);
+
+      if (existing == null) {
+        return await insertUser(user);
+      }
+
+      final mergedUser = existing.copyWith(
+        email: user.email,
+        passwordHash: user.passwordHash,
+        emailVerified: user.emailVerified,
+        fullName: user.fullName ?? existing.fullName,
+        dateOfBirth: user.dateOfBirth ?? existing.dateOfBirth,
+        gender: user.gender ?? existing.gender,
+        heightCm: user.heightCm ?? existing.heightCm,
+        initialWeightKg: user.initialWeightKg ?? existing.initialWeightKg,
+        targetNetCarbs: user.targetNetCarbs,
+        targetProtein: user.targetProtein ?? existing.targetProtein,
+        targetFat: user.targetFat ?? existing.targetFat,
+        targetCalories: user.targetCalories ?? existing.targetCalories,
+        ketoStartDate: user.ketoStartDate ?? existing.ketoStartDate,
+        medicalConditions: user.medicalConditions ?? existing.medicalConditions,
+        goals: user.goals ?? existing.goals,
+        iotDevices: user.iotDevices ?? existing.iotDevices,
+        foodCreationCount: user.foodCreationCount,
+        foodCreationWindowStart:
+            user.foodCreationWindowStart ?? existing.foodCreationWindowStart,
+        maxFoodsPerWindow: user.maxFoodsPerWindow,
+        windowDurationDays: user.windowDurationDays,
+        researchConsent: user.researchConsent,
+        dataSharingConsent: user.dataSharingConsent,
+        anonymousId: user.anonymousId ?? existing.anonymousId,
+        lastLogin: user.lastLogin ?? existing.lastLogin,
+      );
+
+      await updateUser(mergedUser);
+      return mergedUser.userId ?? 0;
+    } catch (e) {
+      debugPrint('[USER DAO] ❌ Upsert error: $e');
       rethrow;
     }
   }
@@ -86,7 +135,8 @@ class DriftUserDao {
   Future<UserModel?> getUserByAnonymousId(String anonymousId) async {
     try {
       final db = await _db;
-      final query = db.select(db.users)..where((u) => u.anonymousId.equals(anonymousId));
+      final query = db.select(db.users)
+        ..where((u) => u.anonymousId.equals(anonymousId));
       final result = await query.getSingleOrNull();
       return result != null ? _userFromDrift(result) : null;
     } catch (e) {
@@ -102,37 +152,38 @@ class DriftUserDao {
         throw ArgumentError('User ID is required for update');
       }
       final db = await _db;
-      final updated = await (db.update(db.users)
-            ..where((u) => u.userId.equals(user.userId!)))
-          .write(
-        UsersCompanion(
-          email: Value(user.email),
-          passwordHash: Value(user.passwordHash),
-          emailVerified: Value(user.emailVerified),
-          fullName: Value(user.fullName),
-          dateOfBirth: Value(user.dateOfBirth),
-          gender: Value(user.gender),
-          heightCm: Value(user.heightCm),
-          initialWeightKg: Value(user.initialWeightKg),
-          targetNetCarbs: Value(user.targetNetCarbs),
-          targetProtein: Value(user.targetProtein),
-          targetFat: Value(user.targetFat),
-          targetCalories: Value(user.targetCalories),
-          ketoStartDate: Value(user.ketoStartDate),
-          medicalConditions: Value(user.medicalConditions),
-          goals: Value(user.goals),
-          iotDevices: Value(user.iotDevices),
-          foodCreationCount: Value(user.foodCreationCount),
-          foodCreationWindowStart: Value(user.foodCreationWindowStart),
-          maxFoodsPerWindow: Value(user.maxFoodsPerWindow),
-          windowDurationDays: Value(user.windowDurationDays),
-          researchConsent: Value(user.researchConsent),
-          dataSharingConsent: Value(user.dataSharingConsent),
-          anonymousId: Value(user.anonymousId),
-          updatedAt: Value(DateTime.now().toIso8601String()),
-          lastLogin: Value(user.lastLogin),
-        ),
-      );
+      final updated =
+          await (db.update(
+            db.users,
+          )..where((u) => u.userId.equals(user.userId!))).write(
+            UsersCompanion(
+              email: Value(user.email),
+              passwordHash: Value(user.passwordHash),
+              emailVerified: Value(user.emailVerified),
+              fullName: Value(user.fullName),
+              dateOfBirth: Value(user.dateOfBirth),
+              gender: Value(user.gender),
+              heightCm: Value(user.heightCm),
+              initialWeightKg: Value(user.initialWeightKg),
+              targetNetCarbs: Value(user.targetNetCarbs),
+              targetProtein: Value(user.targetProtein),
+              targetFat: Value(user.targetFat),
+              targetCalories: Value(user.targetCalories),
+              ketoStartDate: Value(user.ketoStartDate),
+              medicalConditions: Value(user.medicalConditions),
+              goals: Value(user.goals),
+              iotDevices: Value(user.iotDevices),
+              foodCreationCount: Value(user.foodCreationCount),
+              foodCreationWindowStart: Value(user.foodCreationWindowStart),
+              maxFoodsPerWindow: Value(user.maxFoodsPerWindow),
+              windowDurationDays: Value(user.windowDurationDays),
+              researchConsent: Value(user.researchConsent),
+              dataSharingConsent: Value(user.dataSharingConsent),
+              anonymousId: Value(user.anonymousId),
+              updatedAt: Value(DateTime.now().toIso8601String()),
+              lastLogin: Value(user.lastLogin),
+            ),
+          );
       return updated;
     } catch (e) {
       debugPrint('[USER DAO] ❌ Update error: $e');
@@ -144,7 +195,9 @@ class DriftUserDao {
   Future<int> updateLastLogin(int userId, DateTime loginTime) async {
     try {
       final db = await _db;
-      return await (db.update(db.users)..where((u) => u.userId.equals(userId))).write(
+      return await (db.update(
+        db.users,
+      )..where((u) => u.userId.equals(userId))).write(
         UsersCompanion(
           lastLogin: Value(loginTime.toIso8601String()),
           updatedAt: Value(DateTime.now().toIso8601String()),
@@ -201,4 +254,3 @@ class DriftUserDao {
     );
   }
 }
-
