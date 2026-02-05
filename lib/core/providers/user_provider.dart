@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../auth/supabase_auth_service.dart';
 import '../database/daos/drift_user_dao.dart';
 import '../database/models/user_model.dart';
 import '../utils/password_utils.dart';
@@ -12,38 +10,16 @@ final userProvider = ChangeNotifierProvider<UserProvider>((ref) => UserProvider(
 
 class UserProvider extends ChangeNotifier {
   final DriftUserDao _userDao = DriftUserDao();
-  final SupabaseAuthService _authService = SupabaseAuthService();
-  
   UserModel? _currentUser;
-  User? _supabaseUser;
   bool _isLoading = true;
 
   UserModel? get currentUser => _currentUser;
-  User? get supabaseUser => _supabaseUser;
   bool get isLoading => _isLoading;
-  bool get isAuthenticated => _supabaseUser != null;
+  bool get isAuthenticated => _currentUser != null;
   int? get userId => _currentUser?.userId;
-  String? get supabaseUserId => _supabaseUser?.id;
 
   UserProvider() {
     _loadUser();
-    _setupAuthListener();
-  }
-
-  //listen to Supabase auth state changes
-  void _setupAuthListener() {
-    _authService.authStateChanges.listen((AuthState state) {
-      final event = state.event;
-      if (event == AuthChangeEvent.signedIn) {
-        _supabaseUser = state.session?.user;
-        _syncUserData();
-        notifyListeners();
-      } else if (event == AuthChangeEvent.signedOut) {
-        _supabaseUser = null;
-        _currentUser = null;
-        notifyListeners();
-      }
-    });
   }
 
   //checks if someone was logged in last time the app closed
@@ -52,22 +28,13 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Check if user is logged in with Supabase
-      _supabaseUser = _authService.currentUser;
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('current_user_id');
       
-      if (_supabaseUser != null) {
-        // Load local user data if exists
-        await _syncUserData();
-      } else {
-        // Fallback to local authentication (for backward compatibility)
-        final prefs = await SharedPreferences.getInstance();
-        final userId = prefs.getInt('current_user_id');
-        
-        if (userId != null) {
-          _currentUser = await _userDao.getUserById(userId);
-          if (_currentUser != null) {
-            await _userDao.updateLastLogin(userId, DateTime.now());
-          }
+      if (userId != null) {
+        _currentUser = await _userDao.getUserById(userId);
+        if (_currentUser != null) {
+          await _userDao.updateLastLogin(userId, DateTime.now());
         }
       }
     } catch (e) {
@@ -78,59 +45,32 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  //sync user data between Supabase and local database
-  Future<void> _syncUserData() async {
-    if (_supabaseUser == null) return;
-
-    try {
-      // Try to find user by Supabase UUID (stored in anonymousId field)
-      _currentUser = await _userDao.getUserByAnonymousId(_supabaseUser!.id);
-
-      if (_currentUser == null) {
-        // Create new local user profile if doesn't exist
-        final newUser = UserModel(
-          email: _supabaseUser!.email ?? '',
-          passwordHash: '', // Not needed for Supabase auth
-          fullName: _supabaseUser!.userMetadata?['full_name'],
-          emailVerified: _supabaseUser!.emailConfirmedAt != null ? 1 : 0,
-          anonymousId: _supabaseUser!.id,
-        );
-        
-        final userId = await _userDao.insertUser(newUser);
-        _currentUser = await _userDao.getUserById(userId);
-      } else {
-        // Update existing user's email verification status
-        final updatedUser = _currentUser!.copyWith(
-          emailVerified: _supabaseUser!.emailConfirmedAt != null ? 1 : 0,
-        );
-        await _userDao.updateUser(updatedUser);
-        _currentUser = updatedUser;
-      }
-    } catch (e) {
-      debugPrint('Error syncing user data: $e');
-    }
-  }
-
   //handles user login - returns null if successful, error message if not
   Future<String?> login(String email, String password) async {
     try {
-      // Use Supabase authentication
-      final result = await _authService.signIn(
-        email: email,
-        password: password,
-      );
-
-      if (!result.success) {
-        return result.errorMessage;
-      }
-
-      _supabaseUser = result.user;
-      await _syncUserData();
+      final user = await _userDao.getUserByEmail(email);
       
-      // Update last login
-      if (_currentUser?.userId != null) {
-        await _userDao.updateLastLogin(_currentUser!.userId!, DateTime.now());
+      if (user == null) {
+        return 'Invalid email or password';
       }
+
+      //check if the password matches using secure hashing
+      if (!PasswordUtils.verifyPassword(password, user.passwordHash)) {
+        return 'Invalid email or password';
+      }
+
+      //make sure their email is verified before letting them in
+      if (user.emailVerified != 1) {
+        return 'Please verify your email before logging in. Check your inbox for the verification code.';
+      }
+
+      _currentUser = user;
+      
+      //remember them for next time
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('current_user_id', user.userId!);
+      
+      await _userDao.updateLastLogin(user.userId!, DateTime.now());
       
       notifyListeners();
       return null; //null means success
@@ -140,43 +80,39 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  //creates a new user account
-  Future<String?> register({
+  //creates a new user account (only called after email verification)
+  Future<bool> register({
     required String email,
     required String password,
     String? fullName,
   }) async {
     try {
-      // Use Supabase authentication
-      final result = await _authService.signUp(
-        email: email,
-        password: password,
-        metadata: fullName != null ? {'full_name': fullName} : null,
-      );
-
-      if (!result.success) {
-        return result.errorMessage;
+      if (await _userDao.emailExists(email)) {
+        return false;
       }
 
-      _supabaseUser = result.user;
-      
-      // Create local user profile
+      //hash the password before storing it
+      final hashedPassword = PasswordUtils.hashPassword(password);
       final newUser = UserModel(
         email: email,
-        passwordHash: '', // Not needed for Supabase auth
+        passwordHash: hashedPassword,
         fullName: fullName,
-        emailVerified: _supabaseUser?.emailConfirmedAt != null ? 1 : 0,
-        anonymousId: _supabaseUser?.id,
+        emailVerified: 1, //email is already verified by this point
       );
 
       final userId = await _userDao.insertUser(newUser);
+      
       _currentUser = await _userDao.getUserById(userId);
       
+      //save their session
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('current_user_id', userId);
+      
       notifyListeners();
-      return null; // Success
+      return true;
     } catch (e) {
       debugPrint('Registration error: $e');
-      return 'An error occurred during registration. Please try again.';
+      return false;
     }
   }
 
@@ -195,10 +131,6 @@ class UserProvider extends ChangeNotifier {
 
   //logs out and clears the session
   Future<void> logout() async {
-    // Sign out from Supabase
-    await _authService.signOut();
-    
-    _supabaseUser = null;
     _currentUser = null;
     
     final prefs = await SharedPreferences.getInstance();
