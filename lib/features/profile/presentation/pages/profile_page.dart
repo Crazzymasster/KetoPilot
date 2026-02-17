@@ -17,6 +17,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _fullNameController;
   late TextEditingController _emailController;
+  late TextEditingController _phoneController;
   late TextEditingController _heightController;
   late TextEditingController _weightController;
   late TextEditingController _targetCarbsController;
@@ -44,6 +45,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
     _fullNameController = TextEditingController(text: user?.fullName ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
+    _phoneController = TextEditingController(text: user?.phoneNumber ?? '');
     _heightController = TextEditingController(
       text: user?.heightCm?.toString() ?? '',
     );
@@ -76,6 +78,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   void dispose() {
     _fullNameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _heightController.dispose();
     _weightController.dispose();
     _targetCarbsController.dispose();
@@ -136,6 +139,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         fullName: _fullNameController.text.trim().isEmpty
             ? null
             : _fullNameController.text.trim(),
+        phoneNumber: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
         gender: _selectedGender,
         dateOfBirth: _selectedDateOfBirth?.toIso8601String().split('T')[0],
         heightCm: _heightController.text.isEmpty
@@ -301,6 +307,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.phone),
+              ),
+              keyboardType: TextInputType.phone,
+              enabled: _isEditing,
             ),
             const SizedBox(height: 16),
 

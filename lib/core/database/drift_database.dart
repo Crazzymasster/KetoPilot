@@ -25,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -34,7 +34,14 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // Handle future migrations here
+        // Migration from version 1 to 2: Add profile_setup_completed column
+        if (from < 2) {
+          await m.addColumn(users, users.profileSetupCompleted);
+        }
+        // Migration from version 2 to 3: Add phone_number column
+        if (from < 3) {
+          await m.addColumn(users, users.phoneNumber);
+        }
       },
     );
   }

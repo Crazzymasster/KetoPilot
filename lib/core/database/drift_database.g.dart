@@ -39,6 +39,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _phoneNumberMeta =
+      const VerificationMeta('phoneNumber');
+  @override
+  late final GeneratedColumn<String> phoneNumber = GeneratedColumn<String>(
+      'phone_number', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _fullNameMeta =
       const VerificationMeta('fullName');
   @override
@@ -171,6 +177,14 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _profileSetupCompletedMeta =
+      const VerificationMeta('profileSetupCompleted');
+  @override
+  late final GeneratedColumn<int> profileSetupCompleted = GeneratedColumn<int>(
+      'profile_setup_completed', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -199,6 +213,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         email,
         passwordHash,
         emailVerified,
+        phoneNumber,
         fullName,
         dateOfBirth,
         gender,
@@ -219,6 +234,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         researchConsent,
         dataSharingConsent,
         anonymousId,
+        profileSetupCompleted,
         createdAt,
         updatedAt,
         lastLogin
@@ -256,6 +272,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           _emailVerifiedMeta,
           emailVerified.isAcceptableOrUnknown(
               data['email_verified']!, _emailVerifiedMeta));
+    }
+    if (data.containsKey('phone_number')) {
+      context.handle(
+          _phoneNumberMeta,
+          phoneNumber.isAcceptableOrUnknown(
+              data['phone_number']!, _phoneNumberMeta));
     }
     if (data.containsKey('full_name')) {
       context.handle(_fullNameMeta,
@@ -368,6 +390,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           anonymousId.isAcceptableOrUnknown(
               data['anonymous_id']!, _anonymousIdMeta));
     }
+    if (data.containsKey('profile_setup_completed')) {
+      context.handle(
+          _profileSetupCompletedMeta,
+          profileSetupCompleted.isAcceptableOrUnknown(
+              data['profile_setup_completed']!, _profileSetupCompletedMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -397,6 +425,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           .read(DriftSqlType.string, data['${effectivePrefix}password_hash'])!,
       emailVerified: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}email_verified'])!,
+      phoneNumber: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}phone_number']),
       fullName: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}full_name']),
       dateOfBirth: attachedDatabase.typeMapping
@@ -438,6 +468,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
           DriftSqlType.int, data['${effectivePrefix}data_sharing_consent'])!,
       anonymousId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}anonymous_id']),
+      profileSetupCompleted: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}profile_setup_completed'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -458,6 +490,7 @@ class User extends DataClass implements Insertable<User> {
   final String email;
   final String passwordHash;
   final int emailVerified;
+  final String? phoneNumber;
   final String? fullName;
   final String? dateOfBirth;
   final String? gender;
@@ -478,6 +511,7 @@ class User extends DataClass implements Insertable<User> {
   final int researchConsent;
   final int dataSharingConsent;
   final String? anonymousId;
+  final int profileSetupCompleted;
   final String createdAt;
   final String updatedAt;
   final String? lastLogin;
@@ -486,6 +520,7 @@ class User extends DataClass implements Insertable<User> {
       required this.email,
       required this.passwordHash,
       required this.emailVerified,
+      this.phoneNumber,
       this.fullName,
       this.dateOfBirth,
       this.gender,
@@ -506,6 +541,7 @@ class User extends DataClass implements Insertable<User> {
       required this.researchConsent,
       required this.dataSharingConsent,
       this.anonymousId,
+      required this.profileSetupCompleted,
       required this.createdAt,
       required this.updatedAt,
       this.lastLogin});
@@ -516,6 +552,9 @@ class User extends DataClass implements Insertable<User> {
     map['email'] = Variable<String>(email);
     map['password_hash'] = Variable<String>(passwordHash);
     map['email_verified'] = Variable<int>(emailVerified);
+    if (!nullToAbsent || phoneNumber != null) {
+      map['phone_number'] = Variable<String>(phoneNumber);
+    }
     if (!nullToAbsent || fullName != null) {
       map['full_name'] = Variable<String>(fullName);
     }
@@ -565,6 +604,7 @@ class User extends DataClass implements Insertable<User> {
     if (!nullToAbsent || anonymousId != null) {
       map['anonymous_id'] = Variable<String>(anonymousId);
     }
+    map['profile_setup_completed'] = Variable<int>(profileSetupCompleted);
     map['created_at'] = Variable<String>(createdAt);
     map['updated_at'] = Variable<String>(updatedAt);
     if (!nullToAbsent || lastLogin != null) {
@@ -579,6 +619,9 @@ class User extends DataClass implements Insertable<User> {
       email: Value(email),
       passwordHash: Value(passwordHash),
       emailVerified: Value(emailVerified),
+      phoneNumber: phoneNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(phoneNumber),
       fullName: fullName == null && nullToAbsent
           ? const Value.absent()
           : Value(fullName),
@@ -625,6 +668,7 @@ class User extends DataClass implements Insertable<User> {
       anonymousId: anonymousId == null && nullToAbsent
           ? const Value.absent()
           : Value(anonymousId),
+      profileSetupCompleted: Value(profileSetupCompleted),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       lastLogin: lastLogin == null && nullToAbsent
@@ -641,6 +685,7 @@ class User extends DataClass implements Insertable<User> {
       email: serializer.fromJson<String>(json['email']),
       passwordHash: serializer.fromJson<String>(json['passwordHash']),
       emailVerified: serializer.fromJson<int>(json['emailVerified']),
+      phoneNumber: serializer.fromJson<String?>(json['phoneNumber']),
       fullName: serializer.fromJson<String?>(json['fullName']),
       dateOfBirth: serializer.fromJson<String?>(json['dateOfBirth']),
       gender: serializer.fromJson<String?>(json['gender']),
@@ -663,6 +708,8 @@ class User extends DataClass implements Insertable<User> {
       researchConsent: serializer.fromJson<int>(json['researchConsent']),
       dataSharingConsent: serializer.fromJson<int>(json['dataSharingConsent']),
       anonymousId: serializer.fromJson<String?>(json['anonymousId']),
+      profileSetupCompleted:
+          serializer.fromJson<int>(json['profileSetupCompleted']),
       createdAt: serializer.fromJson<String>(json['createdAt']),
       updatedAt: serializer.fromJson<String>(json['updatedAt']),
       lastLogin: serializer.fromJson<String?>(json['lastLogin']),
@@ -676,6 +723,7 @@ class User extends DataClass implements Insertable<User> {
       'email': serializer.toJson<String>(email),
       'passwordHash': serializer.toJson<String>(passwordHash),
       'emailVerified': serializer.toJson<int>(emailVerified),
+      'phoneNumber': serializer.toJson<String?>(phoneNumber),
       'fullName': serializer.toJson<String?>(fullName),
       'dateOfBirth': serializer.toJson<String?>(dateOfBirth),
       'gender': serializer.toJson<String?>(gender),
@@ -697,6 +745,7 @@ class User extends DataClass implements Insertable<User> {
       'researchConsent': serializer.toJson<int>(researchConsent),
       'dataSharingConsent': serializer.toJson<int>(dataSharingConsent),
       'anonymousId': serializer.toJson<String?>(anonymousId),
+      'profileSetupCompleted': serializer.toJson<int>(profileSetupCompleted),
       'createdAt': serializer.toJson<String>(createdAt),
       'updatedAt': serializer.toJson<String>(updatedAt),
       'lastLogin': serializer.toJson<String?>(lastLogin),
@@ -708,6 +757,7 @@ class User extends DataClass implements Insertable<User> {
           String? email,
           String? passwordHash,
           int? emailVerified,
+          Value<String?> phoneNumber = const Value.absent(),
           Value<String?> fullName = const Value.absent(),
           Value<String?> dateOfBirth = const Value.absent(),
           Value<String?> gender = const Value.absent(),
@@ -728,6 +778,7 @@ class User extends DataClass implements Insertable<User> {
           int? researchConsent,
           int? dataSharingConsent,
           Value<String?> anonymousId = const Value.absent(),
+          int? profileSetupCompleted,
           String? createdAt,
           String? updatedAt,
           Value<String?> lastLogin = const Value.absent()}) =>
@@ -736,6 +787,7 @@ class User extends DataClass implements Insertable<User> {
         email: email ?? this.email,
         passwordHash: passwordHash ?? this.passwordHash,
         emailVerified: emailVerified ?? this.emailVerified,
+        phoneNumber: phoneNumber.present ? phoneNumber.value : this.phoneNumber,
         fullName: fullName.present ? fullName.value : this.fullName,
         dateOfBirth: dateOfBirth.present ? dateOfBirth.value : this.dateOfBirth,
         gender: gender.present ? gender.value : this.gender,
@@ -765,6 +817,8 @@ class User extends DataClass implements Insertable<User> {
         researchConsent: researchConsent ?? this.researchConsent,
         dataSharingConsent: dataSharingConsent ?? this.dataSharingConsent,
         anonymousId: anonymousId.present ? anonymousId.value : this.anonymousId,
+        profileSetupCompleted:
+            profileSetupCompleted ?? this.profileSetupCompleted,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         lastLogin: lastLogin.present ? lastLogin.value : this.lastLogin,
@@ -779,6 +833,8 @@ class User extends DataClass implements Insertable<User> {
       emailVerified: data.emailVerified.present
           ? data.emailVerified.value
           : this.emailVerified,
+      phoneNumber:
+          data.phoneNumber.present ? data.phoneNumber.value : this.phoneNumber,
       fullName: data.fullName.present ? data.fullName.value : this.fullName,
       dateOfBirth:
           data.dateOfBirth.present ? data.dateOfBirth.value : this.dateOfBirth,
@@ -826,6 +882,9 @@ class User extends DataClass implements Insertable<User> {
           : this.dataSharingConsent,
       anonymousId:
           data.anonymousId.present ? data.anonymousId.value : this.anonymousId,
+      profileSetupCompleted: data.profileSetupCompleted.present
+          ? data.profileSetupCompleted.value
+          : this.profileSetupCompleted,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       lastLogin: data.lastLogin.present ? data.lastLogin.value : this.lastLogin,
@@ -839,6 +898,7 @@ class User extends DataClass implements Insertable<User> {
           ..write('email: $email, ')
           ..write('passwordHash: $passwordHash, ')
           ..write('emailVerified: $emailVerified, ')
+          ..write('phoneNumber: $phoneNumber, ')
           ..write('fullName: $fullName, ')
           ..write('dateOfBirth: $dateOfBirth, ')
           ..write('gender: $gender, ')
@@ -859,6 +919,7 @@ class User extends DataClass implements Insertable<User> {
           ..write('researchConsent: $researchConsent, ')
           ..write('dataSharingConsent: $dataSharingConsent, ')
           ..write('anonymousId: $anonymousId, ')
+          ..write('profileSetupCompleted: $profileSetupCompleted, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('lastLogin: $lastLogin')
@@ -872,6 +933,7 @@ class User extends DataClass implements Insertable<User> {
         email,
         passwordHash,
         emailVerified,
+        phoneNumber,
         fullName,
         dateOfBirth,
         gender,
@@ -892,6 +954,7 @@ class User extends DataClass implements Insertable<User> {
         researchConsent,
         dataSharingConsent,
         anonymousId,
+        profileSetupCompleted,
         createdAt,
         updatedAt,
         lastLogin
@@ -904,6 +967,7 @@ class User extends DataClass implements Insertable<User> {
           other.email == this.email &&
           other.passwordHash == this.passwordHash &&
           other.emailVerified == this.emailVerified &&
+          other.phoneNumber == this.phoneNumber &&
           other.fullName == this.fullName &&
           other.dateOfBirth == this.dateOfBirth &&
           other.gender == this.gender &&
@@ -924,6 +988,7 @@ class User extends DataClass implements Insertable<User> {
           other.researchConsent == this.researchConsent &&
           other.dataSharingConsent == this.dataSharingConsent &&
           other.anonymousId == this.anonymousId &&
+          other.profileSetupCompleted == this.profileSetupCompleted &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.lastLogin == this.lastLogin);
@@ -934,6 +999,7 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String> email;
   final Value<String> passwordHash;
   final Value<int> emailVerified;
+  final Value<String?> phoneNumber;
   final Value<String?> fullName;
   final Value<String?> dateOfBirth;
   final Value<String?> gender;
@@ -954,6 +1020,7 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<int> researchConsent;
   final Value<int> dataSharingConsent;
   final Value<String?> anonymousId;
+  final Value<int> profileSetupCompleted;
   final Value<String> createdAt;
   final Value<String> updatedAt;
   final Value<String?> lastLogin;
@@ -962,6 +1029,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.email = const Value.absent(),
     this.passwordHash = const Value.absent(),
     this.emailVerified = const Value.absent(),
+    this.phoneNumber = const Value.absent(),
     this.fullName = const Value.absent(),
     this.dateOfBirth = const Value.absent(),
     this.gender = const Value.absent(),
@@ -982,6 +1050,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.researchConsent = const Value.absent(),
     this.dataSharingConsent = const Value.absent(),
     this.anonymousId = const Value.absent(),
+    this.profileSetupCompleted = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.lastLogin = const Value.absent(),
@@ -991,6 +1060,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     required String email,
     required String passwordHash,
     this.emailVerified = const Value.absent(),
+    this.phoneNumber = const Value.absent(),
     this.fullName = const Value.absent(),
     this.dateOfBirth = const Value.absent(),
     this.gender = const Value.absent(),
@@ -1011,6 +1081,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.researchConsent = const Value.absent(),
     this.dataSharingConsent = const Value.absent(),
     this.anonymousId = const Value.absent(),
+    this.profileSetupCompleted = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.lastLogin = const Value.absent(),
@@ -1021,6 +1092,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? email,
     Expression<String>? passwordHash,
     Expression<int>? emailVerified,
+    Expression<String>? phoneNumber,
     Expression<String>? fullName,
     Expression<String>? dateOfBirth,
     Expression<String>? gender,
@@ -1041,6 +1113,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<int>? researchConsent,
     Expression<int>? dataSharingConsent,
     Expression<String>? anonymousId,
+    Expression<int>? profileSetupCompleted,
     Expression<String>? createdAt,
     Expression<String>? updatedAt,
     Expression<String>? lastLogin,
@@ -1050,6 +1123,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (email != null) 'email': email,
       if (passwordHash != null) 'password_hash': passwordHash,
       if (emailVerified != null) 'email_verified': emailVerified,
+      if (phoneNumber != null) 'phone_number': phoneNumber,
       if (fullName != null) 'full_name': fullName,
       if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
       if (gender != null) 'gender': gender,
@@ -1073,6 +1147,8 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (dataSharingConsent != null)
         'data_sharing_consent': dataSharingConsent,
       if (anonymousId != null) 'anonymous_id': anonymousId,
+      if (profileSetupCompleted != null)
+        'profile_setup_completed': profileSetupCompleted,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (lastLogin != null) 'last_login': lastLogin,
@@ -1084,6 +1160,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       Value<String>? email,
       Value<String>? passwordHash,
       Value<int>? emailVerified,
+      Value<String?>? phoneNumber,
       Value<String?>? fullName,
       Value<String?>? dateOfBirth,
       Value<String?>? gender,
@@ -1104,6 +1181,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       Value<int>? researchConsent,
       Value<int>? dataSharingConsent,
       Value<String?>? anonymousId,
+      Value<int>? profileSetupCompleted,
       Value<String>? createdAt,
       Value<String>? updatedAt,
       Value<String?>? lastLogin}) {
@@ -1112,6 +1190,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       email: email ?? this.email,
       passwordHash: passwordHash ?? this.passwordHash,
       emailVerified: emailVerified ?? this.emailVerified,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       fullName: fullName ?? this.fullName,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       gender: gender ?? this.gender,
@@ -1133,6 +1212,8 @@ class UsersCompanion extends UpdateCompanion<User> {
       researchConsent: researchConsent ?? this.researchConsent,
       dataSharingConsent: dataSharingConsent ?? this.dataSharingConsent,
       anonymousId: anonymousId ?? this.anonymousId,
+      profileSetupCompleted:
+          profileSetupCompleted ?? this.profileSetupCompleted,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastLogin: lastLogin ?? this.lastLogin,
@@ -1153,6 +1234,9 @@ class UsersCompanion extends UpdateCompanion<User> {
     }
     if (emailVerified.present) {
       map['email_verified'] = Variable<int>(emailVerified.value);
+    }
+    if (phoneNumber.present) {
+      map['phone_number'] = Variable<String>(phoneNumber.value);
     }
     if (fullName.present) {
       map['full_name'] = Variable<String>(fullName.value);
@@ -1215,6 +1299,10 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (anonymousId.present) {
       map['anonymous_id'] = Variable<String>(anonymousId.value);
     }
+    if (profileSetupCompleted.present) {
+      map['profile_setup_completed'] =
+          Variable<int>(profileSetupCompleted.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<String>(createdAt.value);
     }
@@ -1234,6 +1322,7 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('email: $email, ')
           ..write('passwordHash: $passwordHash, ')
           ..write('emailVerified: $emailVerified, ')
+          ..write('phoneNumber: $phoneNumber, ')
           ..write('fullName: $fullName, ')
           ..write('dateOfBirth: $dateOfBirth, ')
           ..write('gender: $gender, ')
@@ -1254,6 +1343,7 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('researchConsent: $researchConsent, ')
           ..write('dataSharingConsent: $dataSharingConsent, ')
           ..write('anonymousId: $anonymousId, ')
+          ..write('profileSetupCompleted: $profileSetupCompleted, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('lastLogin: $lastLogin')
@@ -9152,6 +9242,7 @@ typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   required String email,
   required String passwordHash,
   Value<int> emailVerified,
+  Value<String?> phoneNumber,
   Value<String?> fullName,
   Value<String?> dateOfBirth,
   Value<String?> gender,
@@ -9172,6 +9263,7 @@ typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
   Value<int> researchConsent,
   Value<int> dataSharingConsent,
   Value<String?> anonymousId,
+  Value<int> profileSetupCompleted,
   Value<String> createdAt,
   Value<String> updatedAt,
   Value<String?> lastLogin,
@@ -9181,6 +9273,7 @@ typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
   Value<String> email,
   Value<String> passwordHash,
   Value<int> emailVerified,
+  Value<String?> phoneNumber,
   Value<String?> fullName,
   Value<String?> dateOfBirth,
   Value<String?> gender,
@@ -9201,6 +9294,7 @@ typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
   Value<int> researchConsent,
   Value<int> dataSharingConsent,
   Value<String?> anonymousId,
+  Value<int> profileSetupCompleted,
   Value<String> createdAt,
   Value<String> updatedAt,
   Value<String?> lastLogin,
@@ -9225,6 +9319,9 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<int> get emailVerified => $composableBuilder(
       column: $table.emailVerified, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get phoneNumber => $composableBuilder(
+      column: $table.phoneNumber, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get fullName => $composableBuilder(
       column: $table.fullName, builder: (column) => ColumnFilters(column));
@@ -9296,6 +9393,10 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
   ColumnFilters<String> get anonymousId => $composableBuilder(
       column: $table.anonymousId, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<int> get profileSetupCompleted => $composableBuilder(
+      column: $table.profileSetupCompleted,
+      builder: (column) => ColumnFilters(column));
+
   ColumnFilters<String> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
 
@@ -9328,6 +9429,9 @@ class $$UsersTableOrderingComposer
   ColumnOrderings<int> get emailVerified => $composableBuilder(
       column: $table.emailVerified,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get phoneNumber => $composableBuilder(
+      column: $table.phoneNumber, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get fullName => $composableBuilder(
       column: $table.fullName, builder: (column) => ColumnOrderings(column));
@@ -9401,6 +9505,10 @@ class $$UsersTableOrderingComposer
   ColumnOrderings<String> get anonymousId => $composableBuilder(
       column: $table.anonymousId, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get profileSetupCompleted => $composableBuilder(
+      column: $table.profileSetupCompleted,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -9431,6 +9539,9 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<int> get emailVerified => $composableBuilder(
       column: $table.emailVerified, builder: (column) => column);
+
+  GeneratedColumn<String> get phoneNumber => $composableBuilder(
+      column: $table.phoneNumber, builder: (column) => column);
 
   GeneratedColumn<String> get fullName =>
       $composableBuilder(column: $table.fullName, builder: (column) => column);
@@ -9492,6 +9603,9 @@ class $$UsersTableAnnotationComposer
   GeneratedColumn<String> get anonymousId => $composableBuilder(
       column: $table.anonymousId, builder: (column) => column);
 
+  GeneratedColumn<int> get profileSetupCompleted => $composableBuilder(
+      column: $table.profileSetupCompleted, builder: (column) => column);
+
   GeneratedColumn<String> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -9529,6 +9643,7 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<String> email = const Value.absent(),
             Value<String> passwordHash = const Value.absent(),
             Value<int> emailVerified = const Value.absent(),
+            Value<String?> phoneNumber = const Value.absent(),
             Value<String?> fullName = const Value.absent(),
             Value<String?> dateOfBirth = const Value.absent(),
             Value<String?> gender = const Value.absent(),
@@ -9549,6 +9664,7 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<int> researchConsent = const Value.absent(),
             Value<int> dataSharingConsent = const Value.absent(),
             Value<String?> anonymousId = const Value.absent(),
+            Value<int> profileSetupCompleted = const Value.absent(),
             Value<String> createdAt = const Value.absent(),
             Value<String> updatedAt = const Value.absent(),
             Value<String?> lastLogin = const Value.absent(),
@@ -9558,6 +9674,7 @@ class $$UsersTableTableManager extends RootTableManager<
             email: email,
             passwordHash: passwordHash,
             emailVerified: emailVerified,
+            phoneNumber: phoneNumber,
             fullName: fullName,
             dateOfBirth: dateOfBirth,
             gender: gender,
@@ -9578,6 +9695,7 @@ class $$UsersTableTableManager extends RootTableManager<
             researchConsent: researchConsent,
             dataSharingConsent: dataSharingConsent,
             anonymousId: anonymousId,
+            profileSetupCompleted: profileSetupCompleted,
             createdAt: createdAt,
             updatedAt: updatedAt,
             lastLogin: lastLogin,
@@ -9587,6 +9705,7 @@ class $$UsersTableTableManager extends RootTableManager<
             required String email,
             required String passwordHash,
             Value<int> emailVerified = const Value.absent(),
+            Value<String?> phoneNumber = const Value.absent(),
             Value<String?> fullName = const Value.absent(),
             Value<String?> dateOfBirth = const Value.absent(),
             Value<String?> gender = const Value.absent(),
@@ -9607,6 +9726,7 @@ class $$UsersTableTableManager extends RootTableManager<
             Value<int> researchConsent = const Value.absent(),
             Value<int> dataSharingConsent = const Value.absent(),
             Value<String?> anonymousId = const Value.absent(),
+            Value<int> profileSetupCompleted = const Value.absent(),
             Value<String> createdAt = const Value.absent(),
             Value<String> updatedAt = const Value.absent(),
             Value<String?> lastLogin = const Value.absent(),
@@ -9616,6 +9736,7 @@ class $$UsersTableTableManager extends RootTableManager<
             email: email,
             passwordHash: passwordHash,
             emailVerified: emailVerified,
+            phoneNumber: phoneNumber,
             fullName: fullName,
             dateOfBirth: dateOfBirth,
             gender: gender,
@@ -9636,6 +9757,7 @@ class $$UsersTableTableManager extends RootTableManager<
             researchConsent: researchConsent,
             dataSharingConsent: dataSharingConsent,
             anonymousId: anonymousId,
+            profileSetupCompleted: profileSetupCompleted,
             createdAt: createdAt,
             updatedAt: updatedAt,
             lastLogin: lastLogin,

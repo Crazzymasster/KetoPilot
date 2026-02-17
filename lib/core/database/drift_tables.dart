@@ -6,6 +6,7 @@ class Users extends Table {
   TextColumn get email => text().withLength(min: 1, max: 255)();
   TextColumn get passwordHash => text()();
   IntColumn get emailVerified => integer().withDefault(const Constant(0))();
+  TextColumn get phoneNumber => text().nullable()();
   
   TextColumn get fullName => text().nullable()();
   TextColumn get dateOfBirth => text().nullable()();
@@ -32,6 +33,7 @@ class Users extends Table {
   IntColumn get researchConsent => integer().withDefault(const Constant(0))();
   IntColumn get dataSharingConsent => integer().withDefault(const Constant(0))();
   TextColumn get anonymousId => text().nullable().unique()();
+  IntColumn get profileSetupCompleted => integer().withDefault(const Constant(0))();
   
   TextColumn get createdAt => text().withDefault(Constant(DateTime.now().toIso8601String()))();
   TextColumn get updatedAt => text().withDefault(Constant(DateTime.now().toIso8601String()))();

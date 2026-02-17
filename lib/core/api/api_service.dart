@@ -1,3 +1,11 @@
+import 'api_client.dart';
+import 'services/auth_service.dart';
+import 'services/diet_service.dart';
+import 'services/food_service.dart';
+import 'services/health_service.dart';
+import 'services/photo_service.dart';
+import 'services/summary_service.dart';
+
 /// Main API service that provides access to all API services
 class ApiService {
   final ApiClient _apiClient;

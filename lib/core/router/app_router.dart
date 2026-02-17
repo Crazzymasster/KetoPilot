@@ -10,6 +10,8 @@ import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/database_test/database_test_page.dart';
 import '../../features/trends/presentation/pages/trends_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/forgot_password_page.dart';
+import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 
 part 'app_router.gr.dart';
@@ -20,6 +22,8 @@ class AppRouter extends _$AppRouter {
   List<AutoRoute> get routes => [
     // Auth routes
     AutoRoute(page: LoginRoute.page, path: '/login', initial: true),
+    AutoRoute(page: ForgotPasswordRoute.page, path: '/forgot-password'),
+    AutoRoute(page: ResetPasswordRoute.page, path: '/reset-password'),
     
     // Onboarding route
     AutoRoute(page: OnboardingRoute.page, path: '/onboarding'),

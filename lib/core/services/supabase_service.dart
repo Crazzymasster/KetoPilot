@@ -12,6 +12,11 @@ class SupabaseService {
     await Supabase.initialize(
       url: SupabaseConfig.supabaseUrl,
       anonKey: SupabaseConfig.supabaseAnonKey,
+      authOptions: const FlutterAuthClientOptions(
+        // Use implicit flow so password reset works across platforms
+        // (Flutter initiates, web browser completes)
+        authFlowType: AuthFlowType.implicit,
+      ),
     );
     _client = Supabase.instance.client;
   }

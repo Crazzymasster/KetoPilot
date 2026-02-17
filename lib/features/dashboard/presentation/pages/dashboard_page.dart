@@ -2,7 +2,6 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/themes/app_theme.dart';
@@ -50,12 +49,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Future<void> _maybeShowProfileSetup() async {
     if (_profileSetupShown) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final hasCompleted = prefs.getBool('profile_setup_completed') ?? false;
-    if (hasCompleted) return;
-
     final user = ref.read(userProvider).currentUser;
     if (user == null) return;
+
+    // Check if this specific user has already completed profile setup
+    if (user.profileSetupCompleted == 1) return;
 
     _profileSetupShown = true;
 
@@ -65,7 +63,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       barrierDismissible: false,
       builder: (context) => ProfileSetupDialog(
         onCompleted: () async {
-          await prefs.setBool('profile_setup_completed', true);
+          // Mark profile setup as completed for this user in the database
+          final currentUser = ref.read(userProvider).currentUser;
+          if (currentUser != null) {
+            final updatedUser = currentUser.copyWith(
+              profileSetupCompleted: 1,
+              updatedAt: DateTime.now().toIso8601String(),
+            );
+            await ref.read(userProvider.notifier).updateProfile(updatedUser);
+          }
         },
       ),
     );
@@ -993,13 +999,13 @@ class ProfileSetupDialog extends ConsumerStatefulWidget {
 }
 
 class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
-  final _dobFormKey = GlobalKey<FormState>();
-  final _genderFormKey = GlobalKey<FormState>();
-  int _currentStep = 0;
+  final _formKey = GlobalKey<FormState>();
   bool _isSaving = false;
   String? _selectedGender;
   DateTime? _selectedDateOfBirth;
   DateTime? _ketoStartDate;
+  String? _dobError;
+  String? _genderError;
   late TextEditingController _heightController;
   late TextEditingController _weightController;
   late TextEditingController _targetCarbsController;
@@ -1059,7 +1065,10 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
     );
 
     if (picked != null) {
-      setState(() => _selectedDateOfBirth = picked);
+      setState(() {
+        _selectedDateOfBirth = picked;
+        _dobError = null;
+      });
     }
   }
 
@@ -1080,10 +1089,10 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
     if (value == null || value.trim().isEmpty) return null;
     final parsed = double.tryParse(value.trim());
     if (parsed == null) {
-      return 'Please enter a valid $fieldName';
+      return 'Invalid $fieldName';
     }
     if (parsed < 0) {
-      return '$fieldName cannot be negative';
+      return 'Cannot be negative';
     }
     return null;
   }
@@ -1094,14 +1103,13 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
   }
 
   Future<void> _completeSetup() async {
-    if (_selectedDateOfBirth == null) {
-      setState(() => _currentStep = 0);
-      return;
-    }
-    if (_selectedGender == null || _selectedGender!.isEmpty) {
-      setState(() => _currentStep = 1);
-      return;
-    }
+    setState(() {
+      _dobError = _selectedDateOfBirth == null ? 'Required' : null;
+      _genderError = (_selectedGender == null || _selectedGender!.isEmpty) ? 'Required' : null;
+    });
+
+    if (_dobError != null || _genderError != null) return;
+    if (_formKey.currentState?.validate() != true) return;
 
     final user = ref.read(userProvider).currentUser;
     if (user == null) return;
@@ -1146,319 +1154,370 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
     }
   }
 
-  Widget _buildStepHeader(BuildContext context) {
-    final labels = ['DOB', 'Gender', 'Physical', 'Keto'];
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 16,
-      runSpacing: 8,
-      children: List.generate(labels.length, (index) {
-        final isActive = _currentStep == index;
-        final isComplete = _currentStep > index;
-        final color = isActive || isComplete
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.outline;
-        final textColor = isActive || isComplete
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.onSurfaceVariant;
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: isActive
-                    ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: color, width: 1.4),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '${index + 1}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              labels[index],
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: textColor,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-              ),
-            ),
-          ],
-        );
-      }),
-    );
-  }
-
-  Widget _buildStepContent() {
-    switch (_currentStep) {
-      case 0:
-        return Form(
-          key: _dobFormKey,
-          child: FormField<DateTime>(
-            validator: (_) {
-              if (_selectedDateOfBirth == null) {
-                return 'Please select your date of birth';
-              }
-              return null;
-            },
-            builder: (state) => InkWell(
-              onTap: _selectDateOfBirth,
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: 'Date of Birth',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.cake),
-                  errorText: state.errorText,
-                ),
-                child: Text(
-                  _selectedDateOfBirth != null
-                      ? '${_selectedDateOfBirth!.year}-${_selectedDateOfBirth!.month.toString().padLeft(2, '0')}-${_selectedDateOfBirth!.day.toString().padLeft(2, '0')}'
-                      : 'Select date',
-                ),
-              ),
-            ),
-          ),
-        );
-      case 1:
-        return Form(
-          key: _genderFormKey,
-          child: DropdownButtonFormField<String>(
-            value: _selectedGender,
-            decoration: const InputDecoration(
-              labelText: 'Gender',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.wc),
-            ),
-            items: ['Male', 'Female', 'Other'].map((gender) {
-              return DropdownMenuItem(value: gender, child: Text(gender));
-            }).toList(),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please select a gender';
-              }
-              return null;
-            },
-            onChanged: (value) => setState(() => _selectedGender = value),
-          ),
-        );
-      case 2:
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isNarrow = constraints.maxWidth < 420;
-            final heightField = TextFormField(
-              controller: _heightController,
-              decoration: const InputDecoration(
-                labelText: 'Height (cm)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.height),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) =>
-                  _validateNonNegativeNumber(value, 'height'),
-            );
-            final weightField = TextFormField(
-              controller: _weightController,
-              decoration: const InputDecoration(
-                labelText: 'Weight (kg)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.monitor_weight),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) =>
-                  _validateNonNegativeNumber(value, 'weight'),
-            );
-
-            return Column(
-              children: [
-                if (isNarrow) ...[
-                  heightField,
-                  const SizedBox(height: 16),
-                  weightField,
-                ] else
-                  Row(
-                    children: [
-                      Expanded(child: heightField),
-                      const SizedBox(width: 16),
-                      Expanded(child: weightField),
-                    ],
-                  ),
-              ],
-            );
-          },
-        );
-      default:
-        return Column(
-          children: [
-            InkWell(
-              onTap: _selectKetoStartDate,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Keto Start Date (Optional)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
-                ),
-                child: Text(
-                  _ketoStartDate != null
-                      ? '${_ketoStartDate!.year}-${_ketoStartDate!.month.toString().padLeft(2, '0')}-${_ketoStartDate!.day.toString().padLeft(2, '0')}'
-                      : 'Select date',
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _targetCarbsController,
-              decoration: const InputDecoration(
-                labelText: 'Target Net Carbs (g)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.grain),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) =>
-                  _validateNonNegativeNumber(value, 'target net carbs'),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _targetProteinController,
-              decoration: const InputDecoration(
-                labelText: 'Target Protein (g) (Optional)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.egg),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) =>
-                  _validateNonNegativeNumber(value, 'target protein'),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _targetFatController,
-              decoration: const InputDecoration(
-                labelText: 'Target Fat (g) (Optional)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.oil_barrel),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) =>
-                  _validateNonNegativeNumber(value, 'target fat'),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _targetCaloriesController,
-              decoration: const InputDecoration(
-                labelText: 'Target Calories (Optional)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.local_fire_department),
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) =>
-                  _validateNonNegativeNumber(value, 'target calories'),
-            ),
-          ],
-        );
-    }
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final maxWidth = media.size.width < 560 ? media.size.width * 0.92 : 520.0;
-    final maxHeight = media.size.height * 0.68;
-
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Complete your profile',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'We only ask this once. Required fields help personalize your recommendations.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildStepHeader(context),
-              const SizedBox(height: 16),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: _buildStepContent(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  FilledButton(
-                    onPressed: _isSaving
-                        ? null
-                        : () {
-                            if (_currentStep == 0) {
-                              if (_dobFormKey.currentState?.validate() !=
-                                  true) {
-                                return;
-                              }
-                              setState(() => _currentStep = 1);
-                              return;
-                            }
-                            if (_currentStep == 1) {
-                              if (_genderFormKey.currentState?.validate() !=
-                                  true) {
-                                return;
-                              }
-                              setState(() => _currentStep = 2);
-                              return;
-                            }
-                            if (_currentStep < 3) {
-                              setState(() => _currentStep += 1);
-                            } else {
-                              _completeSetup();
-                            }
-                          },
-                    child: _isSaving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_currentStep == 3 ? 'Finish' : 'Continue'),
+                  // Header with close button
+                  Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Complete Profile',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Quick setup to personalize your experience.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        right: -8,
+                        top: -8,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => Navigator.of(context).pop(),
+                          splashRadius: 18,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  if (_currentStep > 0)
-                    TextButton(
-                      onPressed:
-                          _isSaving ? null : () => setState(() => _currentStep -= 1),
-                      child: const Text('Back'),
+                  
+                  const Divider(height: 20),
+                  
+                  // Birthday section
+                  _buildSectionLabel('Birthday', required: true),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: _selectDateOfBirth,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _dobError != null ? colorScheme.error : colorScheme.outline,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.cake_outlined, size: 18, color: colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _selectedDateOfBirth != null
+                                  ? _formatDate(_selectedDateOfBirth!)
+                                  : 'Select date',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: _selectedDateOfBirth != null
+                                    ? colorScheme.onSurface
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          Icon(Icons.arrow_drop_down, color: colorScheme.onSurfaceVariant),
+                        ],
+                      ),
                     ),
-                  if (_currentStep >= 2)
-                    TextButton(
+                  ),
+                  if (_dobError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 12),
+                      child: Text(_dobError!, style: TextStyle(color: colorScheme.error, fontSize: 12)),
+                    ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Gender section (radio buttons like Facebook)
+                  _buildSectionLabel('Gender', required: true),
+                  const SizedBox(height: 6),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: _genderError != null ? colorScheme.error : colorScheme.outline,
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildGenderOption('Female'),
+                        _buildGenderOption('Male'),
+                        _buildGenderOption('Other'),
+                      ],
+                    ),
+                  ),
+                  if (_genderError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 12),
+                      child: Text(_genderError!, style: TextStyle(color: colorScheme.error, fontSize: 12)),
+                    ),
+                  
+                  const Divider(height: 24),
+                  
+                  // Physical info (side by side)
+                  _buildSectionLabel('Physical Info', required: false),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildCompactTextField(
+                          controller: _heightController,
+                          hint: 'Height (cm)',
+                          icon: Icons.height,
+                          validator: (v) => _validateNonNegativeNumber(v, 'height'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactTextField(
+                          controller: _weightController,
+                          hint: 'Weight (kg)',
+                          icon: Icons.monitor_weight_outlined,
+                          validator: (v) => _validateNonNegativeNumber(v, 'weight'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const Divider(height: 24),
+                  
+                  // Keto Goals section
+                  _buildSectionLabel('Keto Goals', required: false),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: _selectKetoStartDate,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: colorScheme.outline),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.calendar_today_outlined, size: 18, color: colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _ketoStartDate != null
+                                  ? 'Started: ${_formatDate(_ketoStartDate!)}'
+                                  : 'Keto start date',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: _ketoStartDate != null
+                                    ? colorScheme.onSurface
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          Icon(Icons.arrow_drop_down, color: colorScheme.onSurfaceVariant),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildCompactTextField(
+                          controller: _targetCarbsController,
+                          hint: 'Carbs (g)',
+                          icon: Icons.grain,
+                          validator: (v) => _validateNonNegativeNumber(v, 'carbs'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactTextField(
+                          controller: _targetProteinController,
+                          hint: 'Protein (g)',
+                          icon: Icons.egg_outlined,
+                          validator: (v) => _validateNonNegativeNumber(v, 'protein'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildCompactTextField(
+                          controller: _targetFatController,
+                          hint: 'Fat (g)',
+                          icon: Icons.opacity,
+                          validator: (v) => _validateNonNegativeNumber(v, 'fat'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _buildCompactTextField(
+                          controller: _targetCaloriesController,
+                          hint: 'Calories',
+                          icon: Icons.local_fire_department_outlined,
+                          validator: (v) => _validateNonNegativeNumber(v, 'calories'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Submit button
+                  SizedBox(
+                    height: 40,
+                    child: FilledButton(
                       onPressed: _isSaving ? null : _completeSetup,
-                      child: const Text('Skip optional'),
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Save Profile', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
+                  ),
                 ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String label, {required bool required}) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w500,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        if (required)
+          Text(
+            ' *',
+            style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildGenderOption(String gender) {
+    final theme = Theme.of(context);
+    final isSelected = _selectedGender == gender;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() {
+          _selectedGender = gender;
+          _genderError = null;
+        }),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outline,
+                    width: 1.5,
+                  ),
+                ),
+                child: isSelected
+                    ? Center(
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                gender,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    String? Function(String?)? validator,
+  }) {
+    final theme = Theme.of(context);
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      validator: validator,
+      style: theme.textTheme.bodyMedium,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        prefixIcon: Icon(icon, size: 18),
+        prefixIconConstraints: const BoxConstraints(minWidth: 36),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: BorderSide(color: theme.colorScheme.outline),
         ),
       ),
     );

@@ -72,6 +72,19 @@ class _MetabolicHealthAppState extends ConsumerState<MetabolicHealthApp> {
     // Check auth on startup - will redirect if needed
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAuth();
+      _setupPasswordRecoveryListener();
+    });
+  }
+
+  void _setupPasswordRecoveryListener() {
+    // Listen for password recovery events
+    ref.listenManual(userProvider, (previous, next) {
+      if (next.pendingPasswordRecovery) {
+        // Navigate to reset password page
+        _appRouter.replace(const ResetPasswordRoute());
+        // Clear the flag
+        ref.read(userProvider.notifier).clearPasswordRecovery();
+      }
     });
   }
 

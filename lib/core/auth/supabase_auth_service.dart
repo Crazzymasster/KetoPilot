@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
+import '../config/supabase_config.dart';
 
 class AuthResult {
   final bool success;
@@ -13,6 +14,8 @@ class SupabaseAuthService {
   final SupabaseService _supabaseService = SupabaseService();
 
   SupabaseClient get _client => _supabaseService.client;
+  
+  SupabaseClient get client => _supabaseService.client;
 
   User? get currentUser => _client.auth.currentUser;
 
@@ -97,7 +100,10 @@ class SupabaseAuthService {
 
   Future<AuthResult> resetPassword({required String email}) async {
     try {
-      await _client.auth.resetPasswordForEmail(email);
+      await _client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: SupabaseConfig.passwordResetRedirectUrl,
+      );
       return AuthResult(success: true);
     } on AuthException catch (e) {
       return AuthResult(
@@ -110,6 +116,104 @@ class SupabaseAuthService {
         errorMessage: 'An unexpected error occurred. Please try again.',
       );
     }
+  }
+
+  /// Sends an OTP code to the specified phone number for password reset
+  Future<AuthResult> sendPhoneOtp({required String phone}) async {
+    try {
+      // Format phone number to ensure it has country code
+      final formattedPhone = _formatPhoneNumber(phone);
+      
+      await _client.auth.signInWithOtp(
+        phone: formattedPhone,
+      );
+      return AuthResult(success: true);
+    } on AuthException catch (e) {
+      return AuthResult(
+        success: false,
+        errorMessage: _formatAuthError(e.message),
+      );
+    } catch (e) {
+      return AuthResult(
+        success: false,
+        errorMessage: 'An unexpected error occurred. Please try again.',
+      );
+    }
+  }
+
+  /// Verifies the OTP code sent to the phone number
+  Future<AuthResult> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) async {
+    try {
+      final formattedPhone = _formatPhoneNumber(phone);
+      
+      final response = await _client.auth.verifyOTP(
+        phone: formattedPhone,
+        token: token,
+        type: OtpType.sms,
+      );
+      
+      if (response.user == null) {
+        return AuthResult(
+          success: false,
+          errorMessage: 'Verification failed. Please try again.',
+        );
+      }
+      
+      return AuthResult(success: true, user: response.user);
+    } on AuthException catch (e) {
+      return AuthResult(
+        success: false,
+        errorMessage: _formatAuthError(e.message),
+      );
+    } catch (e) {
+      return AuthResult(
+        success: false,
+        errorMessage: 'An unexpected error occurred. Please try again.',
+      );
+    }
+  }
+
+  /// Updates the password for the currently authenticated user
+  Future<AuthResult> updatePassword({required String newPassword}) async {
+    try {
+      final response = await _client.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+      
+      if (response.user == null) {
+        return AuthResult(
+          success: false,
+          errorMessage: 'Password update failed. Please try again.',
+        );
+      }
+      
+      return AuthResult(success: true, user: response.user);
+    } on AuthException catch (e) {
+      return AuthResult(
+        success: false,
+        errorMessage: _formatAuthError(e.message),
+      );
+    } catch (e) {
+      return AuthResult(
+        success: false,
+        errorMessage: 'An unexpected error occurred. Please try again.',
+      );
+    }
+  }
+
+  String _formatPhoneNumber(String phone) {
+    // Remove any non-digit characters except + at the start
+    String cleaned = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    
+    // If it doesn't start with +, assume US and add +1
+    if (!cleaned.startsWith('+')) {
+      cleaned = '+1$cleaned';
+    }
+    
+    return cleaned;
   }
 
   String _formatAuthError(String message) {

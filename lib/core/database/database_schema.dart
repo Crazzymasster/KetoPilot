@@ -228,6 +228,7 @@ class DatabaseSchema {
         email TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
         email_verified INTEGER DEFAULT 0,
+        phone_number TEXT,
         
         full_name TEXT,
         date_of_birth TEXT,
@@ -254,6 +255,7 @@ class DatabaseSchema {
         research_consent INTEGER DEFAULT 0,
         data_sharing_consent INTEGER DEFAULT 0,
         anonymous_id TEXT UNIQUE,
+        profile_setup_completed INTEGER DEFAULT 0,
         
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,

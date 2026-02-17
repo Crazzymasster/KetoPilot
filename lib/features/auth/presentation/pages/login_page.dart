@@ -19,6 +19,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _confirmPasswordController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -70,6 +71,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _firstNameController.clear();
     _lastNameController.clear();
     _confirmPasswordController.clear();
+    _phoneController.clear();
   }
 
   @override
@@ -79,6 +81,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _confirmPasswordController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -113,11 +116,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         final firstName = _firstNameController.text.trim();
         final lastName = _lastNameController.text.trim();
         final fullName = '$firstName $lastName'.trim();
+        final phoneNumber = _phoneController.text.trim();
 
         final success = await userNotifier.register(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           fullName: fullName,
+          userMetadata: phoneNumber.isNotEmpty ? {'phone_number': phoneNumber} : null,
         );
 
         if (mounted) {
@@ -229,6 +234,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             _validateRequiredText(value, 'last name'),
                       ),
                       const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _phoneController,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone Number (Optional)',
+                          prefixIcon: Icon(Icons.phone),
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                      ),
+                      const SizedBox(height: 16),
                     ],
                     TextFormField(
                       controller: _emailController,
@@ -304,6 +320,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       const SizedBox(height: 16),
                     ] else ...[
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () => context.router.pushNamed('/forgot-password'),
+                          child: Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 8),
                     ],
                     FilledButton(

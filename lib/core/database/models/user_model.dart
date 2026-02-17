@@ -4,6 +4,7 @@ class UserModel {
   final String email;
   final String passwordHash;
   final int emailVerified;
+  final String? phoneNumber;
   final String? fullName;
   final String? dateOfBirth;
   final String? gender;
@@ -24,6 +25,7 @@ class UserModel {
   final int researchConsent;
   final int dataSharingConsent;
   final String? anonymousId;
+  final int profileSetupCompleted;
   final String createdAt;
   final String updatedAt;
   final String? lastLogin;
@@ -33,6 +35,7 @@ class UserModel {
     required this.email,
     required this.passwordHash,
     this.emailVerified = 0,
+    this.phoneNumber,
     this.fullName,
     this.dateOfBirth,
     this.gender,
@@ -53,6 +56,7 @@ class UserModel {
     this.researchConsent = 0,
     this.dataSharingConsent = 0,
     this.anonymousId,
+    this.profileSetupCompleted = 0,
     String? createdAt,
     String? updatedAt,
     this.lastLogin,
@@ -65,6 +69,7 @@ class UserModel {
       'email': email,
       'password_hash': passwordHash,
       'email_verified': emailVerified,
+      'phone_number': phoneNumber,
       'full_name': fullName,
       'date_of_birth': dateOfBirth,
       'gender': gender,
@@ -85,6 +90,7 @@ class UserModel {
       'research_consent': researchConsent,
       'data_sharing_consent': dataSharingConsent,
       'anonymous_id': anonymousId,
+      'profile_setup_completed': profileSetupCompleted,
       'created_at': createdAt,
       'updated_at': updatedAt,
       'last_login': lastLogin,
@@ -97,6 +103,7 @@ class UserModel {
       email: map['email'] as String,
       passwordHash: map['password_hash'] as String,
       emailVerified: map['email_verified'] as int? ?? 0,
+      phoneNumber: map['phone_number'] as String?,
       fullName: map['full_name'] as String?,
       dateOfBirth: map['date_of_birth'] as String?,
       gender: map['gender'] as String?,
@@ -117,6 +124,7 @@ class UserModel {
       researchConsent: map['research_consent'] as int? ?? 0,
       dataSharingConsent: map['data_sharing_consent'] as int? ?? 0,
       anonymousId: map['anonymous_id'] as String?,
+      profileSetupCompleted: map['profile_setup_completed'] as int? ?? 0,
       createdAt: map['created_at'] as String?,
       updatedAt: map['updated_at'] as String?,
       lastLogin: map['last_login'] as String?,
@@ -128,6 +136,7 @@ class UserModel {
     String? email,
     String? passwordHash,
     int? emailVerified,
+    String? phoneNumber,
     String? fullName,
     String? dateOfBirth,
     String? gender,
@@ -148,6 +157,7 @@ class UserModel {
     int? researchConsent,
     int? dataSharingConsent,
     String? anonymousId,
+    int? profileSetupCompleted,
     String? createdAt,
     String? updatedAt,
     String? lastLogin,
@@ -157,6 +167,7 @@ class UserModel {
       email: email ?? this.email,
       passwordHash: passwordHash ?? this.passwordHash,
       emailVerified: emailVerified ?? this.emailVerified,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       fullName: fullName ?? this.fullName,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       gender: gender ?? this.gender,
@@ -177,6 +188,7 @@ class UserModel {
       researchConsent: researchConsent ?? this.researchConsent,
       dataSharingConsent: dataSharingConsent ?? this.dataSharingConsent,
       anonymousId: anonymousId ?? this.anonymousId,
+      profileSetupCompleted: profileSetupCompleted ?? this.profileSetupCompleted,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastLogin: lastLogin ?? this.lastLogin,

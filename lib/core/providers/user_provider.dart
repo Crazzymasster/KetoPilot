@@ -20,11 +20,13 @@ class UserProvider extends ChangeNotifier {
   UserModel? _currentUser;
   User? _supabaseUser;
   bool _isLoading = true;
+  bool _pendingPasswordRecovery = false;
 
   UserModel? get currentUser => _currentUser;
   User? get supabaseUser => _supabaseUser;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _supabaseUser != null;
+  bool get pendingPasswordRecovery => _pendingPasswordRecovery;
   int? get userId => _currentUser?.userId;
   String? get supabaseUserId => _supabaseUser?.id;
   bool get needsProfileCompletion {
@@ -49,9 +51,21 @@ class UserProvider extends ChangeNotifier {
       } else if (event == AuthChangeEvent.signedOut) {
         _supabaseUser = null;
         _currentUser = null;
+        _pendingPasswordRecovery = false;
+        notifyListeners();
+      } else if (event == AuthChangeEvent.passwordRecovery) {
+        // User clicked password reset link from email
+        _supabaseUser = state.session?.user;
+        _pendingPasswordRecovery = true;
         notifyListeners();
       }
     });
+  }
+
+  /// Clear the pending password recovery flag after handling
+  void clearPasswordRecovery() {
+    _pendingPasswordRecovery = false;
+    notifyListeners();
   }
 
   //checks if someone was logged in last time the app closed
@@ -93,6 +107,7 @@ class UserProvider extends ChangeNotifier {
     try {
       final metadata = _supabaseUser!.userMetadata ?? <String, dynamic>{};
       final metadataFullName = _stringFromMetadata(metadata, 'full_name');
+      final metadataPhoneNumber = _stringFromMetadata(metadata, 'phone_number');
       final metadataDateOfBirth = _stringFromMetadata(
         metadata,
         'date_of_birth',
@@ -127,6 +142,7 @@ class UserProvider extends ChangeNotifier {
           email: _supabaseUser!.email ?? '',
           passwordHash: '', // Not needed for Supabase auth
           fullName: metadataFullName,
+          phoneNumber: metadataPhoneNumber,
           dateOfBirth: metadataDateOfBirth,
           gender: metadataGender,
           heightCm: metadataHeight,
@@ -235,6 +251,7 @@ class UserProvider extends ChangeNotifier {
 
     final metadata = <String, dynamic>{
       'full_name': updatedUser.fullName,
+      'phone_number': updatedUser.phoneNumber,
       'date_of_birth': updatedUser.dateOfBirth,
       'gender': updatedUser.gender,
       'height_cm': updatedUser.heightCm,
@@ -261,6 +278,7 @@ class UserProvider extends ChangeNotifier {
     final payload = {
       'user_id': _supabaseUser!.id,
       'email': updatedUser.email,
+      'phone_number': updatedUser.phoneNumber,
       'full_name': updatedUser.fullName,
       'date_of_birth': updatedUser.dateOfBirth,
       'gender': updatedUser.gender,
