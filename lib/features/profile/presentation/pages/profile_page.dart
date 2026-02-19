@@ -1,9 +1,48 @@
+import 'dart:convert'; // >>> CHANGE: added
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/providers/user_provider.dart';
 import '../../../../core/database/models/user_model.dart';
+
+// >>> CHANGE START: common physical + mental conditions list
+const List<String> kCommonConditions = [
+  // Physical
+  'Diabetes (Type 1)',
+  'Diabetes (Type 2)',
+  'Prediabetes',
+  'Hypertension (High blood pressure)',
+  'High cholesterol',
+  'Heart disease',
+  'Asthma',
+  'COPD',
+  'Sleep apnea',
+  'Hypothyroidism',
+  'Hyperthyroidism',
+  'PCOS',
+  'IBS (Irritable bowel syndrome)',
+  'GERD (Acid reflux)',
+  'Celiac disease',
+  'Fatty liver disease',
+  'Kidney disease',
+  'Arthritis',
+  'Migraine',
+  'Epilepsy',
+  'Cancer (history)',
+  // Mental
+  'Depression',
+  'Anxiety',
+  'Bipolar disorder',
+  'PTSD',
+  'ADHD',
+  'OCD',
+  'Eating disorder',
+  'Autism spectrum disorder',
+  'Schizophrenia',
+  'Substance use disorder',
+];
+// >>> CHANGE END
 
 @RoutePage()
 class ProfilePage extends ConsumerStatefulWidget {
@@ -31,12 +70,48 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _isEditing = false;
   bool _isSaving = false;
 
+  // >>> CHANGE START: disease state
+  final _diseaseController = TextEditingController();
+  final List<String> _selectedDiseases = [];
+  List<String> _suggestions = [];
+  // >>> CHANGE END
+
   bool _isValidEmail(String email) {
     final emailRegex = RegExp(
       r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
     );
     return emailRegex.hasMatch(email);
   }
+
+  // >>> CHANGE START: disease helpers
+  void _updateSuggestions(String q) {
+    final query = q.trim().toLowerCase();
+    if (query.isEmpty) {
+      setState(() => _suggestions = []);
+      return;
+    }
+    final hits = kCommonConditions
+        .where((c) => c.toLowerCase().contains(query))
+        .take(10)
+        .toList();
+    setState(() => _suggestions = hits);
+  }
+
+  void _addDisease(String name) {
+    final n = name.trim();
+    if (n.isEmpty) return;
+    if (_selectedDiseases.contains(n)) return;
+    setState(() {
+      _selectedDiseases.add(n);
+      _diseaseController.clear();
+      _suggestions = [];
+    });
+  }
+
+  void _removeDisease(String name) {
+    setState(() => _selectedDiseases.remove(name));
+  }
+  // >>> CHANGE END
 
   @override
   void initState() {
@@ -72,6 +147,22 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     if (user?.ketoStartDate != null) {
       _ketoStartDate = DateTime.tryParse(user!.ketoStartDate!);
     }
+
+    // >>> CHANGE START: load existing diseases from medicalConditions (JSON list)
+    if (user?.medicalConditions != null &&
+        user!.medicalConditions!.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(user.medicalConditions!);
+        if (decoded is List) {
+          _selectedDiseases
+            ..clear()
+            ..addAll(decoded.map((e) => e.toString()).where((s) => s.trim().isNotEmpty));
+        }
+      } catch (_) {
+        // ignore invalid legacy data
+      }
+    }
+    // >>> CHANGE END
   }
 
   @override
@@ -85,6 +176,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     _targetProteinController.dispose();
     _targetFatController.dispose();
     _targetCaloriesController.dispose();
+    // >>> CHANGE: added
+    _diseaseController.dispose();
+    // >>> CHANGE END
     super.dispose();
   }
 
@@ -132,6 +226,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
       if (currentUser == null) return;
 
+      // >>> CHANGE START: diseases JSON (store null if empty)
+      final String? medicalConditionsJson =
+      _selectedDiseases.isEmpty ? null : jsonEncode(_selectedDiseases);
+      // >>> CHANGE END
+
       final updatedUser = currentUser.copyWith(
         email: _emailController.text.trim().isEmpty
             ? currentUser.email
@@ -161,6 +260,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ? null
             : double.tryParse(_targetCaloriesController.text),
         ketoStartDate: _ketoStartDate?.toIso8601String().split('T')[0],
+        // >>> CHANGE START: persist diseases
+        medicalConditions: medicalConditionsJson,
+        // >>> CHANGE END
         updatedAt: DateTime.now().toIso8601String(),
       );
 
@@ -223,10 +325,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             IconButton(
               icon: _isSaving
                   ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
                   : const Icon(Icons.check),
               onPressed: _isSaving ? null : _saveProfile,
             ),
@@ -335,8 +437,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               }).toList(),
               onChanged: _isEditing
                   ? (value) {
-                      setState(() => _selectedGender = value);
-                    }
+                setState(() => _selectedGender = value);
+              }
                   : null,
             ),
             const SizedBox(height: 16),
@@ -402,6 +504,64 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               ],
             ),
             const SizedBox(height: 24),
+
+            // >>> CHANGE START: Medical Conditions section (search + choose)
+            Text(
+              'Medical Conditions',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _diseaseController,
+              decoration: const InputDecoration(
+                labelText: 'Search and add conditions',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
+                helperText: 'Type to search, tap to add. You can also type your own and press enter.',
+              ),
+              enabled: _isEditing,
+              onChanged: (v) => _isEditing ? _updateSuggestions(v) : null,
+              onFieldSubmitted: (v) => _isEditing ? _addDisease(v) : null,
+            ),
+
+            if (_isEditing && _suggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 180),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Theme.of(context).dividerColor),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListView.builder(
+                  itemCount: _suggestions.length,
+                  itemBuilder: (_, i) {
+                    final s = _suggestions[i];
+                    return ListTile(
+                      title: Text(s),
+                      onTap: () => _addDisease(s),
+                    );
+                  },
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 12),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _selectedDiseases
+                  .map(
+                    (d) => Chip(
+                  label: Text(d),
+                  onDeleted: _isEditing ? () => _removeDisease(d) : null,
+                ),
+              )
+                  .toList(),
+            ),
+            const SizedBox(height: 24),
+            // >>> CHANGE END
 
             // Keto Journey
             Text(

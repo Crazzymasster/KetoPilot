@@ -1,8 +1,47 @@
+import 'dart:convert'; // >>> CHANGE: added
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/providers/user_provider.dart';
+
+// >>> CHANGE START: common physical + mental conditions + dialog helper
+const List<String> kCommonConditions = [
+  // Physical
+  'Diabetes (Type 1)',
+  'Diabetes (Type 2)',
+  'Prediabetes',
+  'Hypertension (High blood pressure)',
+  'High cholesterol',
+  'Heart disease',
+  'Asthma',
+  'COPD',
+  'Sleep apnea',
+  'Hypothyroidism',
+  'Hyperthyroidism',
+  'PCOS',
+  'IBS (Irritable bowel syndrome)',
+  'GERD (Acid reflux)',
+  'Celiac disease',
+  'Fatty liver disease',
+  'Kidney disease',
+  'Arthritis',
+  'Migraine',
+  'Epilepsy',
+  'Cancer (history)',
+  // Mental
+  'Depression',
+  'Anxiety',
+  'Bipolar disorder',
+  'PTSD',
+  'ADHD',
+  'OCD',
+  'Eating disorder',
+  'Autism spectrum disorder',
+  'Schizophrenia',
+  'Substance use disorder',
+];
+// >>> CHANGE END
 
 @RoutePage()
 class LoginPage extends ConsumerStatefulWidget {
@@ -23,6 +62,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  // >>> CHANGE START: disease prompt state (dialog uses these)
+  final TextEditingController _diseaseSearchController = TextEditingController();
+  final List<String> _selectedDiseases = [];
+  List<String> _diseaseSuggestions = [];
+  // >>> CHANGE END
 
   bool _isValidEmail(String email) {
     final emailRegex = RegExp(
@@ -74,6 +119,180 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _phoneController.clear();
   }
 
+  // >>> CHANGE START: disease dialog helpers
+  void _updateDiseaseSuggestions(String q) {
+    final query = q.trim().toLowerCase();
+    if (query.isEmpty) {
+      setState(() => _diseaseSuggestions = []);
+      return;
+    }
+    final hits = kCommonConditions
+        .where((c) => c.toLowerCase().contains(query))
+        .take(10)
+        .toList();
+    setState(() => _diseaseSuggestions = hits);
+  }
+
+  void _addDisease(String name) {
+    final n = name.trim();
+    if (n.isEmpty) return;
+    if (_selectedDiseases.contains(n)) return;
+    setState(() {
+      _selectedDiseases.add(n);
+      _diseaseSearchController.clear();
+      _diseaseSuggestions = [];
+    });
+  }
+
+  void _removeDisease(String name) {
+    setState(() => _selectedDiseases.remove(name));
+  }
+
+  Future<void> _maybeAskDiseasesThenGoDashboard() async {
+    final userNotifier = ref.read(userProvider.notifier);
+    final user = ref.read(userProvider).currentUser;
+
+    if (user == null) {
+      context.router.replaceNamed('/dashboard');
+      return;
+    }
+
+    // If already filled, go directly.
+    final existing = (user.medicalConditions ?? '').trim();
+    if (existing.isNotEmpty) {
+      context.router.replaceNamed('/dashboard');
+      return;
+    }
+
+    // Reset dialog state each time
+    _selectedDiseases.clear();
+    _diseaseSearchController.clear();
+    _diseaseSuggestions = [];
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocalState) {
+            // use local setState for dialog list updates
+            void localUpdateSuggestions(String q) {
+              final query = q.trim().toLowerCase();
+              if (query.isEmpty) {
+                setLocalState(() => _diseaseSuggestions = []);
+                return;
+              }
+              final hits = kCommonConditions
+                  .where((c) => c.toLowerCase().contains(query))
+                  .take(10)
+                  .toList();
+              setLocalState(() => _diseaseSuggestions = hits);
+            }
+
+            void localAddDisease(String name) {
+              final n = name.trim();
+              if (n.isEmpty) return;
+              if (_selectedDiseases.contains(n)) return;
+              setLocalState(() {
+                _selectedDiseases.add(n);
+                _diseaseSearchController.clear();
+                _diseaseSuggestions = [];
+              });
+            }
+
+            void localRemoveDisease(String name) {
+              setLocalState(() => _selectedDiseases.remove(name));
+            }
+
+            return AlertDialog(
+              title: const Text('Medical conditions (optional)'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Type to search and add conditions. You can also type your own and press enter.',
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _diseaseSearchController,
+                      decoration: const InputDecoration(
+                        labelText: 'Search conditions',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                      onChanged: localUpdateSuggestions,
+                      onSubmitted: (v) => localAddDisease(v),
+                    ),
+                    if (_diseaseSuggestions.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 180),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _diseaseSuggestions.length,
+                          itemBuilder: (_, i) {
+                            final s = _diseaseSuggestions[i];
+                            return ListTile(
+                              title: Text(s),
+                              onTap: () => localAddDisease(s),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _selectedDiseases
+                            .map(
+                              (d) => Chip(
+                            label: Text(d),
+                            onDeleted: () => localRemoveDisease(d),
+                          ),
+                        )
+                            .toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false), // Skip
+                  child: const Text('Skip'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true), // Save
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    // If user chose Save, persist (even if empty list -> store null)
+    if (result == true) {
+      final String? jsonConditions =
+      _selectedDiseases.isEmpty ? null : jsonEncode(_selectedDiseases);
+
+      final updated = user.copyWith(
+        medicalConditions: jsonConditions,
+        updatedAt: DateTime.now().toIso8601String(),
+      );
+      await userNotifier.updateProfile(updated);
+    }
+
+    context.router.replaceNamed('/dashboard');
+  }
+  // >>> CHANGE END
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -82,6 +301,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _phoneController.dispose();
+    // >>> CHANGE: added
+    _diseaseSearchController.dispose();
+    // >>> CHANGE END
     super.dispose();
   }
 
@@ -101,7 +323,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
         if (mounted) {
           if (errorMessage == null) {
-            context.router.replaceNamed('/dashboard');
+            // >>> CHANGE START: ask diseases after login (skip allowed), then go dashboard
+            await _maybeAskDiseasesThenGoDashboard();
+            // >>> CHANGE END
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -196,9 +420,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.headlineLarge
                           ?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -280,7 +504,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                           onPressed: () {
                             setState(
-                              () => _obscurePassword = !_obscurePassword,
+                                  () => _obscurePassword = !_obscurePassword,
                             );
                           },
                         ),
@@ -312,10 +536,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           '• At least 5 characters\n• One capital letter\n• One number',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -343,26 +567,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       child: _isLoading
                           ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                           : Text(
-                              _isLogin ? 'Login' : 'Create Account',
-                              style: const TextStyle(fontSize: 16),
-                            ),
+                        _isLogin ? 'Login' : 'Create Account',
+                        style: const TextStyle(fontSize: 16),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: _isLoading
                           ? null
                           : () {
-                              setState(() {
-                                _isLogin = !_isLogin;
-                                _formKey.currentState?.reset();
-                                _resetSignupFields();
-                              });
-                            },
+                        setState(() {
+                          _isLogin = !_isLogin;
+                          _formKey.currentState?.reset();
+                          _resetSignupFields();
+                        });
+                      },
                       child: Text(
                         _isLogin
                             ? 'Don\'t have an account? Sign Up'
