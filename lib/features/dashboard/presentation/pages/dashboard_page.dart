@@ -270,6 +270,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   Widget _buildWelcomeSection() {
+    // >>> CHANGE START: use current user's display name instead of hard-coded "John"
+    final user = ref.watch(userProvider).currentUser;
+    final name = (user?.fullName ?? '').trim();
+    final greetingName = name.isEmpty ? 'there' : name;
+    // >>> CHANGE END
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
@@ -310,12 +316,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Good Morning, John!',
+                      // >>> CHANGE: replaced hard-coded text
+                      'Good Morning, $greetingName!',
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
-                            color: Theme.of(context).colorScheme.onPrimary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -462,9 +469,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       gki.toStringAsFixed(1),
                       style: Theme.of(context).textTheme.headlineLarge
                           ?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: getGkiColor(),
-                          ),
+                        fontWeight: FontWeight.bold,
+                        color: getGkiColor(),
+                      ),
                     ),
                     Text(
                       getGkiStatus(),
@@ -656,22 +663,22 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           title: 'Nutrition',
           dailyWidget: _isLoadingNutrition
               ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40.0),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
+            child: Padding(
+              padding: EdgeInsets.all(40.0),
+              child: CircularProgressIndicator(),
+            ),
+          )
               : MacroBarsWidget(
-                  carbsGrams: _todayCarbs,
-                  proteinGrams: _todayProtein,
-                  fatGrams: _todayFat,
-                  carbsLimit: _carbsLimit,
-                  proteinGoal: _proteinGoal,
-                  fatGoal: _fatGoal,
-                  maxBarHeight: 120.0,
-                  showTargetLines: true,
-                  showValues: true,
-                ),
+            carbsGrams: _todayCarbs,
+            proteinGrams: _todayProtein,
+            fatGrams: _todayFat,
+            carbsLimit: _carbsLimit,
+            proteinGoal: _proteinGoal,
+            fatGoal: _fatGoal,
+            maxBarHeight: 120.0,
+            showTargetLines: true,
+            showValues: true,
+          ),
           weeklyWidget: const WeeklyNutritionWidget(),
           actionText: 'Food Diary',
           onActionTap: () => context.router.pushNamed('/food-diary'),
@@ -947,10 +954,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           'Learn how to interpret your glucose-ketone index for optimal health.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.7),
-                              ),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withOpacity(0.7),
+                          ),
                         ),
                       ],
                     ),
@@ -974,7 +981,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   void _navigateToIndex(int index) {
     switch (index) {
       case 0:
-        // Already on dashboard
+      // Already on dashboard
         break;
       case 1:
         context.router.pushNamed('/food-diary');
@@ -1105,7 +1112,8 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
   Future<void> _completeSetup() async {
     setState(() {
       _dobError = _selectedDateOfBirth == null ? 'Required' : null;
-      _genderError = (_selectedGender == null || _selectedGender!.isEmpty) ? 'Required' : null;
+      _genderError =
+      (_selectedGender == null || _selectedGender!.isEmpty) ? 'Required' : null;
     });
 
     if (_dobError != null || _genderError != null) return;
@@ -1129,9 +1137,7 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
       updatedAt: DateTime.now().toIso8601String(),
     );
 
-    final success = await ref
-        .read(userProvider.notifier)
-        .updateProfile(updatedUser);
+    final success = await ref.read(userProvider.notifier).updateProfile(updatedUser);
 
     if (!mounted) return;
 
@@ -1162,7 +1168,7 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1215,9 +1221,9 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
                       ),
                     ],
                   ),
-                  
+
                   const Divider(height: 20),
-                  
+
                   // Birthday section
                   _buildSectionLabel('Birthday', required: true),
                   const SizedBox(height: 6),
@@ -1258,9 +1264,9 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
                       padding: const EdgeInsets.only(top: 4, left: 12),
                       child: Text(_dobError!, style: TextStyle(color: colorScheme.error, fontSize: 12)),
                     ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Gender section (radio buttons like Facebook)
                   _buildSectionLabel('Gender', required: true),
                   const SizedBox(height: 6),
@@ -1284,9 +1290,9 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
                       padding: const EdgeInsets.only(top: 4, left: 12),
                       child: Text(_genderError!, style: TextStyle(color: colorScheme.error, fontSize: 12)),
                     ),
-                  
+
                   const Divider(height: 24),
-                  
+
                   // Physical info (side by side)
                   _buildSectionLabel('Physical Info', required: false),
                   const SizedBox(height: 6),
@@ -1311,9 +1317,9 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
                       ),
                     ],
                   ),
-                  
+
                   const Divider(height: 24),
-                  
+
                   // Keto Goals section
                   _buildSectionLabel('Keto Goals', required: false),
                   const SizedBox(height: 6),
@@ -1391,9 +1397,9 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Submit button
                   SizedBox(
                     height: 40,
@@ -1404,10 +1410,10 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
                       ),
                       child: _isSaving
                           ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
                           : const Text('Save Profile', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
@@ -1468,15 +1474,15 @@ class _ProfileSetupDialogState extends ConsumerState<ProfileSetupDialog> {
                 ),
                 child: isSelected
                     ? Center(
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      )
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                )
                     : null,
               ),
               const SizedBox(width: 6),
