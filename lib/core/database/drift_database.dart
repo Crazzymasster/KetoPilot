@@ -25,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -41,6 +41,10 @@ class AppDatabase extends _$AppDatabase {
         // Migration from version 2 to 3: Add phone_number column
         if (from < 3) {
           await m.addColumn(users, users.phoneNumber);
+        }
+        // Migration from version 3 to 4: Add cloud_id for diet entry sync
+        if (from < 4) {
+          await m.addColumn(dietEntries, dietEntries.cloudId);
         }
       },
     );

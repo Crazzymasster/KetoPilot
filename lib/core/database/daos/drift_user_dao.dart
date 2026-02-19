@@ -61,14 +61,58 @@ class DriftUserDao {
   }
 
   //inserts or updates a user based on unique constraints
+  //uses DB-level conflict handling to prevent race conditions
   Future<int> upsertUser(UserModel user) async {
+    try {
+      final db = await _db;
+      
+      //use insertOnConflictUpdate for atomic upsert
+      final id = await db.into(db.users).insertOnConflictUpdate(
+        UsersCompanion(
+          email: Value(user.email),
+          passwordHash: Value(user.passwordHash),
+          emailVerified: Value(user.emailVerified),
+          phoneNumber: Value(user.phoneNumber),
+          fullName: Value(user.fullName),
+          dateOfBirth: Value(user.dateOfBirth),
+          gender: Value(user.gender),
+          heightCm: Value(user.heightCm),
+          initialWeightKg: Value(user.initialWeightKg),
+          targetNetCarbs: Value(user.targetNetCarbs),
+          targetProtein: Value(user.targetProtein),
+          targetFat: Value(user.targetFat),
+          targetCalories: Value(user.targetCalories),
+          ketoStartDate: Value(user.ketoStartDate),
+          medicalConditions: Value(user.medicalConditions),
+          goals: Value(user.goals),
+          iotDevices: Value(user.iotDevices),
+          foodCreationCount: Value(user.foodCreationCount),
+          foodCreationWindowStart: Value(user.foodCreationWindowStart),
+          maxFoodsPerWindow: Value(user.maxFoodsPerWindow),
+          windowDurationDays: Value(user.windowDurationDays),
+          researchConsent: Value(user.researchConsent),
+          dataSharingConsent: Value(user.dataSharingConsent),
+          anonymousId: Value(user.anonymousId),
+          profileSetupCompleted: Value(user.profileSetupCompleted),
+          lastLogin: Value(user.lastLogin),
+        ),
+      );
+      return id;
+    } catch (e) {
+      debugPrint('[USER DAO] ❌ Upsert error: $e');
+      rethrow;
+    }
+  }
+
+  //legacy upsert with merge logic (for profile updates that preserve existing values)
+  Future<int> upsertUserMerge(UserModel user) async {
     try {
       final existing = user.anonymousId == null
           ? null
           : await getUserByAnonymousId(user.anonymousId!);
 
       if (existing == null) {
-        return await insertUser(user);
+        return await upsertUser(user);
       }
 
       final mergedUser = existing.copyWith(
@@ -104,7 +148,7 @@ class DriftUserDao {
       await updateUser(mergedUser);
       return mergedUser.userId ?? 0;
     } catch (e) {
-      debugPrint('[USER DAO] ❌ Upsert error: $e');
+      debugPrint('[USER DAO] ❌ UpsertMerge error: $e');
       rethrow;
     }
   }

@@ -1,7 +1,6 @@
 import '../services/email_service.dart';
 
 //quick setup helpers for configuring email sending
-//⚠️ never commit your actual passwords to git!
 class EmailConfig {
   //you can uncomment this and fill in your details to enable production emails
   //but for now it just uses dev mode (prints codes to console)

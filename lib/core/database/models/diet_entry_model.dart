@@ -20,6 +20,7 @@ class DietEntryModel {
   final String? notes;
   final String? foodPhotoUrl;
   final int synced;
+  final String? cloudId;  //UUID from Supabase for sync
   final String createdAt;
   final String updatedAt;
 
@@ -44,6 +45,7 @@ class DietEntryModel {
     this.notes,
     this.foodPhotoUrl,
     this.synced = 0,
+    this.cloudId,
     String? createdAt,
     String? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now().toIso8601String(),
@@ -71,6 +73,7 @@ class DietEntryModel {
       'notes': notes,
       'food_photo_url': foodPhotoUrl,
       'synced': synced,
+      'cloud_id': cloudId,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };
@@ -98,8 +101,61 @@ class DietEntryModel {
       notes: map['notes'] as String?,
       foodPhotoUrl: map['food_photo_url'] as String?,
       synced: map['synced'] as int? ?? 0,
+      cloudId: map['cloud_id'] as String?,
       createdAt: map['created_at'] as String?,
       updatedAt: map['updated_at'] as String?,
+    );
+  }
+
+  DietEntryModel copyWith({
+    int? entryId,
+    int? userId,
+    int? foodId,
+    String? recordedAt,
+    String? date,
+    int? portionId,
+    double? customPortionGrams,
+    double? servingSizeMultiplier,
+    double? totalEnergyKcal,
+    double? totalProteinG,
+    double? totalFatG,
+    double? totalCarbohydrateG,
+    double? totalNetCarbsG,
+    double? totalFiberG,
+    double? totalSodiumMg,
+    String? mealContext,
+    String? location,
+    String? notes,
+    String? foodPhotoUrl,
+    int? synced,
+    String? cloudId,
+    String? createdAt,
+    String? updatedAt,
+  }) {
+    return DietEntryModel(
+      entryId: entryId ?? this.entryId,
+      userId: userId ?? this.userId,
+      foodId: foodId ?? this.foodId,
+      recordedAt: recordedAt ?? this.recordedAt,
+      date: date ?? this.date,
+      portionId: portionId ?? this.portionId,
+      customPortionGrams: customPortionGrams ?? this.customPortionGrams,
+      servingSizeMultiplier: servingSizeMultiplier ?? this.servingSizeMultiplier,
+      totalEnergyKcal: totalEnergyKcal ?? this.totalEnergyKcal,
+      totalProteinG: totalProteinG ?? this.totalProteinG,
+      totalFatG: totalFatG ?? this.totalFatG,
+      totalCarbohydrateG: totalCarbohydrateG ?? this.totalCarbohydrateG,
+      totalNetCarbsG: totalNetCarbsG ?? this.totalNetCarbsG,
+      totalFiberG: totalFiberG ?? this.totalFiberG,
+      totalSodiumMg: totalSodiumMg ?? this.totalSodiumMg,
+      mealContext: mealContext ?? this.mealContext,
+      location: location ?? this.location,
+      notes: notes ?? this.notes,
+      foodPhotoUrl: foodPhotoUrl ?? this.foodPhotoUrl,
+      synced: synced ?? this.synced,
+      cloudId: cloudId ?? this.cloudId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

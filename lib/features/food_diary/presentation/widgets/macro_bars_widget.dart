@@ -30,7 +30,8 @@ class MacroBarsWidget extends StatefulWidget {
 }
 
 class _MacroBarsWidgetState extends State<MacroBarsWidget>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
+  //only need one ticker so SingleTickerProviderStateMixin is lighter weight
   late AnimationController _animationController;
   late Animation<double> _animation;
 
@@ -38,14 +39,18 @@ class _MacroBarsWidgetState extends State<MacroBarsWidget>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      //shorter duration = smoother on older devices
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
     _animation = CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeInOut,
+      curve: Curves.easeOutCubic, //faster start feels snappier
     );
-    _animationController.forward();
+    //delay animation start til after first frame renders
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _animationController.forward();
+    });
   }
 
   @override
@@ -56,21 +61,24 @@ class _MacroBarsWidgetState extends State<MacroBarsWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 6),
-            _buildMacroBars(),
-            const SizedBox(height: 6),
-            _buildLegend(),
-          ],
+    //repaint boundary isolates this widget from parent repaints
+    return RepaintBoundary(
+      child: Card(
+        elevation: 2,
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 6),
+              _buildMacroBars(),
+              const SizedBox(height: 6),
+              _buildLegend(),
+            ],
+          ),
         ),
       ),
     );

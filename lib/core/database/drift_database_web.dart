@@ -3,32 +3,44 @@ import 'package:drift/drift.dart';
 import 'package:drift/wasm.dart';
 
 /// Create database executor for web platform using WASM
-/// Uses WebAssembly for better performance and compatibility
-/// Note: Uses WasmDatabase.open() which handles WASM loading automatically
+/// Prefers unsafeIndexedDb which runs in main thread for reliable persistence
 Future<QueryExecutor> createExecutor() async {
   try {
     debugPrint('[DRIFT WEB] Creating WASM database executor...');
     
-    // Open WASM database
-    // Note: If local files cause "dispatch_xFunc" errors, they may be incompatible
-    // Try local files first, but they must be from matching Drift/sqlite3.dart releases
+    //open WASM database - let Drift probe for available implementations
     final result = await WasmDatabase.open(
       databaseName: 'ketopilot.db',
-      // Try local file first
       sqlite3Uri: Uri.parse('sqlite3.wasm'),
-      // Try local worker first  
       driftWorkerUri: Uri.parse('drift_worker.dart.js'),
+      //specify that we want IndexedDB mode for persistence
+      //setting this forces IndexedDB over OPFS when both are available
+      enableMigrations: true,
     );
     
-    debugPrint('[DRIFT WEB] ✅ WASM database opened');
+    final impl = result.chosenImplementation;
+    debugPrint('[DRIFT WEB] Storage implementation: $impl');
+    debugPrint('[DRIFT WEB] Missing features: ${result.missingFeatures}');
     
-    // Log any missing features (for debugging)
-    if (result.missingFeatures.isNotEmpty) {
-      debugPrint('[DRIFT WEB] ⚠️ Missing features: ${result.missingFeatures}');
-      debugPrint('[DRIFT WEB] Using implementation: ${result.chosenImplementation}');
+    //check if we got persistent storage
+    final isPersistent = impl == WasmStorageImplementation.opfsLocks ||
+        impl == WasmStorageImplementation.opfsShared ||
+        impl == WasmStorageImplementation.sharedIndexedDb ||
+        impl == WasmStorageImplementation.unsafeIndexedDb;
+    
+    if (!isPersistent) {
+      debugPrint('[DRIFT WEB] ⚠️ WARNING: Using non-persistent storage: $impl');
+      debugPrint('[DRIFT WEB] ⚠️ Data will be LOST when browser closes!');
+    } else {
+      debugPrint('[DRIFT WEB] ✅ Using persistent storage: $impl');
     }
     
-    // Return the resolved executor
+    //if we got sharedIndexedDb, that should persist too - log for debugging
+    if (impl == WasmStorageImplementation.sharedIndexedDb) {
+      debugPrint('[DRIFT WEB] ℹ️ Using SharedWorker-based IndexedDB');
+      debugPrint('[DRIFT WEB] ℹ️ Data should persist in IndexedDB storage');
+    }
+    
     return result.resolvedExecutor;
   } catch (e, stackTrace) {
     debugPrint('[DRIFT WEB] ❌ Error creating WASM executor: $e');

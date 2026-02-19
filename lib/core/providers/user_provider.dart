@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/supabase_auth_service.dart';
 import '../database/daos/drift_user_dao.dart';
 import '../database/models/user_model.dart';
+import '../services/diet_entry_sync_service.dart';
 import '../services/supabase_service.dart';
 import '../utils/password_utils.dart';
 
@@ -21,6 +22,7 @@ class UserProvider extends ChangeNotifier {
   User? _supabaseUser;
   bool _isLoading = true;
   bool _pendingPasswordRecovery = false;
+  bool _isSyncing = false; //prevent concurrent sync operations
 
   UserModel? get currentUser => _currentUser;
   User? get supabaseUser => _supabaseUser;
@@ -44,7 +46,17 @@ class UserProvider extends ChangeNotifier {
   void _setupAuthListener() {
     _authService.authStateChanges.listen((AuthState state) {
       final event = state.event;
-      if (event == AuthChangeEvent.signedIn) {
+      debugPrint('[USER PROVIDER] Auth event: $event');
+      
+      //handle session restoration (fires on app startup if already logged in)
+      if (event == AuthChangeEvent.initialSession) {
+        _supabaseUser = state.session?.user;
+        if (_supabaseUser != null) {
+          debugPrint('[USER PROVIDER] ✅ Session restored for: ${_supabaseUser!.email}');
+          _syncUserData();
+        }
+        notifyListeners();
+      } else if (event == AuthChangeEvent.signedIn) {
         _supabaseUser = state.session?.user;
         _syncUserData();
         notifyListeners();
@@ -57,6 +69,10 @@ class UserProvider extends ChangeNotifier {
         // User clicked password reset link from email
         _supabaseUser = state.session?.user;
         _pendingPasswordRecovery = true;
+        notifyListeners();
+      } else if (event == AuthChangeEvent.tokenRefreshed) {
+        //token refreshed - update user in case anything changed
+        _supabaseUser = state.session?.user;
         notifyListeners();
       }
     });
@@ -103,6 +119,13 @@ class UserProvider extends ChangeNotifier {
   //sync user data between Supabase and local database (WITH FIX FOR UNIQUE CONSTRAINT)
   Future<void> _syncUserData() async {
     if (_supabaseUser == null) return;
+    
+    //prevent concurrent sync operations (race condition fix)
+    if (_isSyncing) {
+      debugPrint('[USER PROVIDER] Sync already in progress, skipping');
+      return;
+    }
+    _isSyncing = true;
 
     try {
       final metadata = _supabaseUser!.userMetadata ?? <String, dynamic>{};
@@ -132,6 +155,11 @@ class UserProvider extends ChangeNotifier {
         metadata,
         'keto_start_date',
       );
+      //check if profile setup was completed on another device
+      final metadataProfileSetupCompleted = _intFromMetadata(
+        metadata,
+        'profile_setup_completed',
+      );
 
       // Try to find user by Supabase UUID (stored in anonymousId field)
       _currentUser = await _userDao.getUserByAnonymousId(_supabaseUser!.id);
@@ -154,19 +182,34 @@ class UserProvider extends ChangeNotifier {
           ketoStartDate: metadataKetoStartDate,
           emailVerified: _supabaseUser!.emailConfirmedAt != null ? 1 : 0,
           anonymousId: _supabaseUser!.id,
+          //restore profile setup completed flag from Supabase
+          profileSetupCompleted: metadataProfileSetupCompleted ?? 0,
         );
-        await _userDao.upsertUser(newUser);
+        await _userDao.upsertUserMerge(newUser);
         _currentUser = await _userDao.getUserByAnonymousId(_supabaseUser!.id);
       } else {
-        // Update existing user's email verification status
+        //update existing user - merge Supabase flags with local data
+        //if Supabase says profile is complete, honor that (completed on another device)
+        final profileComplete = (metadataProfileSetupCompleted == 1) ? 1 : _currentUser!.profileSetupCompleted;
         final updatedUser = _currentUser!.copyWith(
           emailVerified: _supabaseUser!.emailConfirmedAt != null ? 1 : 0,
+          profileSetupCompleted: profileComplete,
         );
         await _userDao.updateUser(updatedUser);
         _currentUser = updatedUser;
       }
+      
+      //sync diet entries after user data is ready
+      if (_currentUser?.userId != null) {
+        await DietEntrySyncService().fullSync(
+          _supabaseUser!.id,
+          _currentUser!.userId!,
+        );
+      }
     } catch (e) {
       debugPrint('Error syncing user data: $e');
+    } finally {
+      _isSyncing = false;
     }
   }
 
@@ -264,6 +307,8 @@ class UserProvider extends ChangeNotifier {
       'medical_conditions': updatedUser.medicalConditions,
       'goals': updatedUser.goals,
       'iot_devices': updatedUser.iotDevices,
+      //persist profile setup flag to Supabase for cross-device sync
+      'profile_setup_completed': updatedUser.profileSetupCompleted,
     };
 
     await client.auth.updateUser(UserAttributes(data: metadata));
@@ -298,6 +343,7 @@ class UserProvider extends ChangeNotifier {
       'window_duration_days': updatedUser.windowDurationDays,
       'research_consent': updatedUser.researchConsent,
       'data_sharing_consent': updatedUser.dataSharingConsent,
+      //note: profile_setup_completed is stored in auth metadata, not profiles table
       'updated_at': DateTime.now().toIso8601String(),
     };
 
@@ -400,6 +446,15 @@ class UserProvider extends ChangeNotifier {
     if (value == null) return null;
     if (value is num) return value.toDouble();
     if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  int? _intFromMetadata(Map<String, dynamic> metadata, String key) {
+    final value = metadata[key];
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
     return null;
   }
 }

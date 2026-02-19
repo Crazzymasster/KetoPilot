@@ -212,9 +212,109 @@ class DriftDietEntryDao {
       notes: row.notes,
       foodPhotoUrl: row.foodPhotoUrl,
       synced: row.synced,
+      cloudId: row.cloudId,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     );
+  }
+
+  //=== SYNC METHODS ===
+
+  /// Get all unsynced diet entries for a user
+  Future<List<DietEntryModel>> getUnsyncedEntries(int userId) async {
+    try {
+      final db = await _db;
+      final query = db.select(db.dietEntries)
+        ..where((e) => e.userId.equals(userId) & e.synced.equals(0));
+      final results = await query.get();
+      return results.map(_dietEntryFromDrift).toList();
+    } catch (e) {
+      debugPrint('[DIET ENTRY DAO] ❌ Get unsynced error: $e');
+      rethrow;
+    }
+  }
+
+  /// Mark entry as synced with cloud ID
+  Future<void> markAsSynced(int entryId, String cloudId) async {
+    try {
+      final db = await _db;
+      await (db.update(db.dietEntries)
+            ..where((e) => e.entryId.equals(entryId)))
+          .write(DietEntriesCompanion(
+        synced: const Value(1),
+        cloudId: Value(cloudId),
+        updatedAt: Value(DateTime.now().toIso8601String()),
+      ));
+    } catch (e) {
+      debugPrint('[DIET ENTRY DAO] ❌ Mark synced error: $e');
+      rethrow;
+    }
+  }
+
+  /// Check if cloud entry exists locally
+  Future<DietEntryModel?> getByCloudId(String cloudId) async {
+    try {
+      final db = await _db;
+      final query = db.select(db.dietEntries)
+        ..where((e) => e.cloudId.equals(cloudId));
+      final result = await query.getSingleOrNull();
+      return result != null ? _dietEntryFromDrift(result) : null;
+    } catch (e) {
+      debugPrint('[DIET ENTRY DAO] ❌ Get by cloudId error: $e');
+      rethrow;
+    }
+  }
+
+  /// Insert entry from cloud (already synced)
+  Future<int> insertFromCloud(DietEntryModel entry) async {
+    try {
+      final db = await _db;
+      final id = await db.into(db.dietEntries).insert(
+        DietEntriesCompanion(
+          userId: Value(entry.userId),
+          foodId: Value(entry.foodId),
+          recordedAt: Value(entry.recordedAt),
+          date: Value(entry.date),
+          portionId: Value(entry.portionId),
+          customPortionGrams: Value(entry.customPortionGrams),
+          servingSizeMultiplier: Value(entry.servingSizeMultiplier),
+          totalEnergyKcal: Value(entry.totalEnergyKcal),
+          totalProteinG: Value(entry.totalProteinG),
+          totalFatG: Value(entry.totalFatG),
+          totalCarbohydrateG: Value(entry.totalCarbohydrateG),
+          totalNetCarbsG: Value(entry.totalNetCarbsG),
+          totalFiberG: Value(entry.totalFiberG),
+          totalSodiumMg: Value(entry.totalSodiumMg),
+          mealContext: Value(entry.mealContext),
+          location: Value(entry.location),
+          notes: Value(entry.notes),
+          foodPhotoUrl: Value(entry.foodPhotoUrl),
+          synced: const Value(1),  //already synced from cloud
+          cloudId: Value(entry.cloudId),
+          createdAt: Value(entry.createdAt),
+          updatedAt: Value(entry.updatedAt),
+        ),
+      );
+      return id;
+    } catch (e) {
+      debugPrint('[DIET ENTRY DAO] ❌ Insert from cloud error: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all entries for a user (for full sync)
+  Future<List<DietEntryModel>> getAllEntriesForUser(int userId) async {
+    try {
+      final db = await _db;
+      final query = db.select(db.dietEntries)
+        ..where((e) => e.userId.equals(userId))
+        ..orderBy([(e) => OrderingTerm.desc(e.recordedAt)]);
+      final results = await query.get();
+      return results.map(_dietEntryFromDrift).toList();
+    } catch (e) {
+      debugPrint('[DIET ENTRY DAO] ❌ Get all entries error: $e');
+      rethrow;
+    }
   }
 }
 

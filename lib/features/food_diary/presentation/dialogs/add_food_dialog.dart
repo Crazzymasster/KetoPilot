@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/database/models/food_model.dart';
 import '../../../../core/database/daos/drift_food_dao.dart';
@@ -19,6 +20,9 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
   
   // Database DAO for food operations
   final DriftFoodDao _foodDao = DriftFoodDao();
+  
+  //debounce timer to avoid hammering db on every keystroke
+  Timer? _debounceTimer;
 
   double _netCarbs = 0.0;
   double _calculatedCalories = 0.0;
@@ -64,10 +68,11 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
   }
   
   /// Search foods in database when search text changes
-  Future<void> _onSearchChanged() async {
+  void _onSearchChanged() {
     final query = _searchController.text.trim();
     
     if (query.isEmpty) {
+      _debounceTimer?.cancel();
       setState(() {
         _searchResults = [];
         _isSearching = false;
@@ -75,10 +80,20 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
       return;
     }
     
+    //show loading indicator immediately for responsiveness
     setState(() {
       _isSearching = true;
     });
     
+    //debounce the actual search by 300ms to avoid excess db calls
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _performSearch(query);
+    });
+  }
+  
+  //the actual db search, only runs after debounce delay
+  Future<void> _performSearch(String query) async {
     try {
       final results = await _foodDao.searchFoods(query, limit: 20);
       if (mounted) {
@@ -115,6 +130,8 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
 
   @override
   void dispose() {
+    //clean up the debounce timer
+    _debounceTimer?.cancel();
     _nameController.dispose();
     _proteinController.removeListener(_updateMacros);
     _proteinController.dispose();
@@ -132,7 +149,7 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
       final fat = double.tryParse(_fatController.text) ?? 0.0;
       final carbs = double.tryParse(_carbsController.text) ?? 0.0;
 
-      final food = FoodModel(
+      var food = FoodModel(
         foodDescription: _nameController.text.trim(),
         energyKcal: _calculatedCalories,
         totalProteinG: protein,
@@ -143,10 +160,11 @@ class _AddFoodDialogState extends State<AddFoodDialog> {
         isKetoFriendly: _netCarbs <= 20 ? 1 : 0,
       );
 
-      // Save custom food to database for future use
+      //save to db and capture the id so it doesnt get inserted again later
       try {
-        await _foodDao.insertFood(food);
-        debugPrint('[ADD FOOD] ✅ Custom food saved to database');
+        final insertedId = await _foodDao.insertFood(food);
+        food = food.copyWith(foodId: insertedId);
+        debugPrint('[ADD FOOD] ✅ Custom food saved with id: $insertedId');
       } catch (e) {
         debugPrint('[ADD FOOD] ⚠️ Could not save custom food: $e');
       }

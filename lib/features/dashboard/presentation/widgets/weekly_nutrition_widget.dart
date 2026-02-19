@@ -3,19 +3,33 @@ import 'package:metabolicapp/core/themes/app_theme.dart';
 
 class WeeklyNutritionWidget extends StatelessWidget {
   const WeeklyNutritionWidget({super.key});
+  
+  //static week data - cached at class level to avoid recalculating on every build
+  static const List<Map<String, dynamic>> _weekData = [
+    {'day': 'Mon', 'carbs': 45.0, 'protein': 85.0, 'fat': 65.0},
+    {'day': 'Tue', 'carbs': 52.0, 'protein': 78.0, 'fat': 58.0},
+    {'day': 'Wed', 'carbs': 38.0, 'protein': 92.0, 'fat': 72.0},
+    {'day': 'Thu', 'carbs': 41.0, 'protein': 88.0, 'fat': 60.0},
+    {'day': 'Fri', 'carbs': 47.0, 'protein': 82.0, 'fat': 68.0},
+    {'day': 'Sat', 'carbs': 35.0, 'protein': 75.0, 'fat': 55.0},
+    {'day': 'Sun', 'carbs': 42.0, 'protein': 80.0, 'fat': 62.0},
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildLegend(context),
-          const SizedBox(height: 16),
-          _buildChart(context),
-          const SizedBox(height: 16),
-          _buildSummary(context),
-        ],
+    //wrap in repaint boundary to isolate repaints
+    return RepaintBoundary(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLegend(context),
+            const SizedBox(height: 16),
+            _buildChart(context),
+            const SizedBox(height: 16),
+            _buildSummary(context),
+          ],
+        ),
       ),
     );
   }
@@ -54,8 +68,6 @@ class WeeklyNutritionWidget extends StatelessWidget {
   }
 
   Widget _buildChart(BuildContext context) {
-    final weekData = _getWeekData();
-
     return Container(
       height: 140,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -64,14 +76,14 @@ class WeeklyNutritionWidget extends StatelessWidget {
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: weekData.map((dayData) {
+              children: _weekData.map((dayData) {
                 return Expanded(child: _buildDayBar(dayData));
               }).toList(),
             ),
           ),
           const SizedBox(height: 8),
           Row(
-            children: weekData.map((dayData) {
+            children: _weekData.map((dayData) {
               return Expanded(
                 child: Text(
                   dayData['day'],
@@ -124,13 +136,13 @@ class WeeklyNutritionWidget extends StatelessWidget {
   }
 
   Widget _buildSummary(BuildContext context) {
-    final weekData = _getWeekData();
+    //using static _weekData instead of calling _getWeekData() again
     final avgCarbs =
-        weekData.map((d) => d['carbs'] as double).reduce((a, b) => a + b) / 7;
+        _weekData.map((d) => d['carbs'] as double).reduce((a, b) => a + b) / 7;
     final avgProtein =
-        weekData.map((d) => d['protein'] as double).reduce((a, b) => a + b) / 7;
+        _weekData.map((d) => d['protein'] as double).reduce((a, b) => a + b) / 7;
     final avgFat =
-        weekData.map((d) => d['fat'] as double).reduce((a, b) => a + b) / 7;
+        _weekData.map((d) => d['fat'] as double).reduce((a, b) => a + b) / 7;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -204,17 +216,5 @@ class WeeklyNutritionWidget extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  List<Map<String, dynamic>> _getWeekData() {
-    return [
-      {'day': 'Mon', 'carbs': 45.0, 'protein': 85.0, 'fat': 65.0},
-      {'day': 'Tue', 'carbs': 52.0, 'protein': 78.0, 'fat': 58.0},
-      {'day': 'Wed', 'carbs': 38.0, 'protein': 92.0, 'fat': 72.0},
-      {'day': 'Thu', 'carbs': 41.0, 'protein': 88.0, 'fat': 60.0},
-      {'day': 'Fri', 'carbs': 47.0, 'protein': 82.0, 'fat': 68.0},
-      {'day': 'Sat', 'carbs': 35.0, 'protein': 75.0, 'fat': 55.0},
-      {'day': 'Sun', 'carbs': 42.0, 'protein': 80.0, 'fat': 62.0},
-    ];
   }
 }

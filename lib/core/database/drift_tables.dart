@@ -111,7 +111,9 @@ class DietEntries extends Table {
   TextColumn get notes => text().nullable()();
   TextColumn get foodPhotoUrl => text().nullable()();
   
+  //sync tracking
   IntColumn get synced => integer().withDefault(const Constant(0))();
+  TextColumn get cloudId => text().nullable()();  //UUID from Supabase
   TextColumn get createdAt => text().withDefault(Constant(DateTime.now().toIso8601String()))();
   TextColumn get updatedAt => text().withDefault(Constant(DateTime.now().toIso8601String()))();
 }

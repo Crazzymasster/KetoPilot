@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/repositories/food_repository.dart';
+import '../../../../core/services/diet_entry_sync_service.dart';
 import '../../../../core/database/models/food_model.dart';
 import '../../../../core/database/models/diet_entry_model.dart';
 import '../../../../core/database/daos/drift_diet_entry_dao.dart';
@@ -16,6 +17,7 @@ import '../../utils/food_diary_utils.dart';
 import '../widgets/macro_bars_widget.dart';
 import '../widgets/macro_summary_card.dart';
 import '../dialogs/add_food_dialog.dart';
+import '../dialogs/add_foods_dialog.dart';
 
 @RoutePage()
 class FoodDiaryPage extends ConsumerStatefulWidget {
@@ -236,10 +238,15 @@ class _FoodDiaryPageState extends ConsumerState<FoodDiaryPage>
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _addFood(),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        child: const Icon(Icons.add),
+      //tap for single add, long press for multiselect
+      floatingActionButton: GestureDetector(
+        onLongPress: _addMultipleFoods,
+        child: FloatingActionButton(
+          onPressed: () => _addFood(),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          tooltip: 'Tap to add one, hold for multiple',
+          child: const Icon(Icons.add),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
@@ -470,29 +477,52 @@ class _FoodDiaryPageState extends ConsumerState<FoodDiaryPage>
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () => _addFoodAtTime(DateTime.now()),
-              icon: const Icon(Icons.add),
-              label: const Text('Add Now'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _addFoodAtTime(DateTime.now()),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add One'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                //multiselect button - fewer taps for logging multiple items
+                child: ElevatedButton.icon(
+                  onPressed: _addMultipleFoods,
+                  icon: const Icon(Icons.playlist_add),
+                  label: const Text('Add Multiple'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: Theme.of(context).colorScheme.secondary,
+                    foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => _addFoodAtCustomTime(),
               icon: const Icon(Icons.schedule),
               label: const Text('Custom Time'),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -674,14 +704,18 @@ class _FoodDiaryPageState extends ConsumerState<FoodDiaryPage>
       );
     }
 
-    return Column(
-      children: sortedEntries.asMap().entries.map((entry) {
-        final index = entry.key;
-        final foodEntry = entry.value;
+    //use ListView.builder for lazy rendering - only builds visible items
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: sortedEntries.length,
+      //cacheExtent keeps a few extra items in memory for smoother scrolling
+      cacheExtent: 200,
+      itemBuilder: (context, index) {
+        final foodEntry = sortedEntries[index];
         final isLast = index == sortedEntries.length - 1;
-
         return _buildTimelineEntry(foodEntry, isLast);
-      }).toList(),
+      },
     );
   }
 
@@ -1072,6 +1106,14 @@ class _FoodDiaryPageState extends ConsumerState<FoodDiaryPage>
         
         // Insert diet entry
         await _dietEntryDao.insertDietEntry(dietEntry);
+        
+        //sync to cloud if user is authenticated
+        final supabaseUser = ref.read(userProvider).supabaseUser;
+        if (supabaseUser != null) {
+          DietEntrySyncService().pushToCloud(supabaseUser.id, userId).catchError((e) {
+            debugPrint('[SYNC] ⚠️ Background sync failed: $e');
+          });
+        }
 
         // Close loading indicator
         if (!mounted) return;
@@ -1125,6 +1167,112 @@ class _FoodDiaryPageState extends ConsumerState<FoodDiaryPage>
         second: 0,
       );
       _addFoodAtTime(customDateTime);
+    }
+  }
+
+  //multiselect food logging - fewer taps to log an entire meal
+  Future<void> _addMultipleFoods() async {
+    final currentUser = ref.read(userProvider).currentUser;
+    if (currentUser?.userId == null) return;
+    
+    final userId = currentUser!.userId!;
+    
+    //show multiselect dialog
+    if (!mounted) return;
+    final results = await showDialog<List<FoodModel>>(
+      context: context,
+      builder: (context) => AddFoodsDialog(userId: userId),
+    );
+    
+    if (results == null || results.isEmpty) return;
+    
+    try {
+      //show loading indicator
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Adding ${results.length} foods...',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+      
+      final now = DateTime.now();
+      final dateStr = now.toIso8601String().split('T')[0];
+      int successCount = 0;
+      
+      //insert all selected foods as diet entries
+      for (final food in results) {
+        try {
+          final foodId = food.foodId ?? 0;
+          if (foodId <= 0) continue;
+          
+          final netCarbs = food.netCarbsG ?? food.totalCarbohydrateG;
+          
+          final dietEntry = DietEntryModel(
+            userId: userId,
+            foodId: foodId,
+            recordedAt: now.toIso8601String(),
+            date: dateStr,
+            servingSizeMultiplier: 1.0,
+            totalEnergyKcal: food.energyKcal,
+            totalProteinG: food.totalProteinG,
+            totalFatG: food.totalFatG,
+            totalCarbohydrateG: food.totalCarbohydrateG,
+            totalNetCarbsG: netCarbs,
+            totalFiberG: food.dietaryFiberG,
+          );
+          
+          await _dietEntryDao.insertDietEntry(dietEntry);
+          successCount++;
+        } catch (e) {
+          debugPrint('[ADD FOODS] ⚠️ Error adding ${food.foodDescription}: $e');
+        }
+      }
+      
+      //sync all new entries to cloud
+      final supabaseUser = ref.read(userProvider).supabaseUser;
+      if (supabaseUser != null && successCount > 0) {
+        DietEntrySyncService().pushToCloud(supabaseUser.id, userId).catchError((e) {
+          debugPrint('[SYNC] ⚠️ Background sync failed: $e');
+        });
+      }
+      
+      //close loading indicator
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      
+      //show success message
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added $successCount food${successCount == 1 ? '' : 's'} successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      //reload to show new entries
+      await _loadDietEntries();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding foods: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

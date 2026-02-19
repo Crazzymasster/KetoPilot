@@ -47,8 +47,9 @@ class _SwipeableSectionWidgetState extends State<SwipeableSectionWidget>
   void _onTabTap(int index) {
     _pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+      //faster animation feels snappier on slow devices
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -151,6 +152,8 @@ class _SwipeableSectionWidgetState extends State<SwipeableSectionWidget>
       child: PageView(
         controller: _pageController,
         onPageChanged: _onPageChanged,
+        //keeps pages alive so they dont rebuild on swipe
+        allowImplicitScrolling: true,
         children: [
           _buildPageContent(widget.dailyWidget),
           _buildPageContent(widget.weeklyWidget),
@@ -160,10 +163,13 @@ class _SwipeableSectionWidgetState extends State<SwipeableSectionWidget>
   }
 
   Widget _buildPageContent(Widget child) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      child: child,
+    //repaintboundary isolates each page from siblings
+    return RepaintBoundary(
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        child: child,
+      ),
     );
   }
 }

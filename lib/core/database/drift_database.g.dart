@@ -3600,6 +3600,12 @@ class $DietEntriesTable extends DietEntries
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _cloudIdMeta =
+      const VerificationMeta('cloudId');
+  @override
+  late final GeneratedColumn<String> cloudId = GeneratedColumn<String>(
+      'cloud_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -3638,6 +3644,7 @@ class $DietEntriesTable extends DietEntries
         notes,
         foodPhotoUrl,
         synced,
+        cloudId,
         createdAt,
         updatedAt
       ];
@@ -3773,6 +3780,10 @@ class $DietEntriesTable extends DietEntries
       context.handle(_syncedMeta,
           synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta));
     }
+    if (data.containsKey('cloud_id')) {
+      context.handle(_cloudIdMeta,
+          cloudId.isAcceptableOrUnknown(data['cloud_id']!, _cloudIdMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -3831,6 +3842,8 @@ class $DietEntriesTable extends DietEntries
           .read(DriftSqlType.string, data['${effectivePrefix}food_photo_url']),
       synced: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}synced'])!,
+      cloudId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}cloud_id']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -3865,6 +3878,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
   final String? notes;
   final String? foodPhotoUrl;
   final int synced;
+  final String? cloudId;
   final String createdAt;
   final String updatedAt;
   const DietEntry(
@@ -3888,6 +3902,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
       this.notes,
       this.foodPhotoUrl,
       required this.synced,
+      this.cloudId,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -3929,6 +3944,9 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
       map['food_photo_url'] = Variable<String>(foodPhotoUrl);
     }
     map['synced'] = Variable<int>(synced);
+    if (!nullToAbsent || cloudId != null) {
+      map['cloud_id'] = Variable<String>(cloudId);
+    }
     map['created_at'] = Variable<String>(createdAt);
     map['updated_at'] = Variable<String>(updatedAt);
     return map;
@@ -3971,6 +3989,9 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
           ? const Value.absent()
           : Value(foodPhotoUrl),
       synced: Value(synced),
+      cloudId: cloudId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cloudId),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -4003,6 +4024,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
       notes: serializer.fromJson<String?>(json['notes']),
       foodPhotoUrl: serializer.fromJson<String?>(json['foodPhotoUrl']),
       synced: serializer.fromJson<int>(json['synced']),
+      cloudId: serializer.fromJson<String?>(json['cloudId']),
       createdAt: serializer.fromJson<String>(json['createdAt']),
       updatedAt: serializer.fromJson<String>(json['updatedAt']),
     );
@@ -4031,6 +4053,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
       'notes': serializer.toJson<String?>(notes),
       'foodPhotoUrl': serializer.toJson<String?>(foodPhotoUrl),
       'synced': serializer.toJson<int>(synced),
+      'cloudId': serializer.toJson<String?>(cloudId),
       'createdAt': serializer.toJson<String>(createdAt),
       'updatedAt': serializer.toJson<String>(updatedAt),
     };
@@ -4057,6 +4080,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
           Value<String?> notes = const Value.absent(),
           Value<String?> foodPhotoUrl = const Value.absent(),
           int? synced,
+          Value<String?> cloudId = const Value.absent(),
           String? createdAt,
           String? updatedAt}) =>
       DietEntry(
@@ -4085,6 +4109,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
         foodPhotoUrl:
             foodPhotoUrl.present ? foodPhotoUrl.value : this.foodPhotoUrl,
         synced: synced ?? this.synced,
+        cloudId: cloudId.present ? cloudId.value : this.cloudId,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -4129,6 +4154,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
           ? data.foodPhotoUrl.value
           : this.foodPhotoUrl,
       synced: data.synced.present ? data.synced.value : this.synced,
+      cloudId: data.cloudId.present ? data.cloudId.value : this.cloudId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -4157,6 +4183,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
           ..write('notes: $notes, ')
           ..write('foodPhotoUrl: $foodPhotoUrl, ')
           ..write('synced: $synced, ')
+          ..write('cloudId: $cloudId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -4185,6 +4212,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
         notes,
         foodPhotoUrl,
         synced,
+        cloudId,
         createdAt,
         updatedAt
       ]);
@@ -4212,6 +4240,7 @@ class DietEntry extends DataClass implements Insertable<DietEntry> {
           other.notes == this.notes &&
           other.foodPhotoUrl == this.foodPhotoUrl &&
           other.synced == this.synced &&
+          other.cloudId == this.cloudId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -4237,6 +4266,7 @@ class DietEntriesCompanion extends UpdateCompanion<DietEntry> {
   final Value<String?> notes;
   final Value<String?> foodPhotoUrl;
   final Value<int> synced;
+  final Value<String?> cloudId;
   final Value<String> createdAt;
   final Value<String> updatedAt;
   const DietEntriesCompanion({
@@ -4260,6 +4290,7 @@ class DietEntriesCompanion extends UpdateCompanion<DietEntry> {
     this.notes = const Value.absent(),
     this.foodPhotoUrl = const Value.absent(),
     this.synced = const Value.absent(),
+    this.cloudId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -4284,6 +4315,7 @@ class DietEntriesCompanion extends UpdateCompanion<DietEntry> {
     this.notes = const Value.absent(),
     this.foodPhotoUrl = const Value.absent(),
     this.synced = const Value.absent(),
+    this.cloudId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   })  : userId = Value(userId),
@@ -4316,6 +4348,7 @@ class DietEntriesCompanion extends UpdateCompanion<DietEntry> {
     Expression<String>? notes,
     Expression<String>? foodPhotoUrl,
     Expression<int>? synced,
+    Expression<String>? cloudId,
     Expression<String>? createdAt,
     Expression<String>? updatedAt,
   }) {
@@ -4343,6 +4376,7 @@ class DietEntriesCompanion extends UpdateCompanion<DietEntry> {
       if (notes != null) 'notes': notes,
       if (foodPhotoUrl != null) 'food_photo_url': foodPhotoUrl,
       if (synced != null) 'synced': synced,
+      if (cloudId != null) 'cloud_id': cloudId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -4369,6 +4403,7 @@ class DietEntriesCompanion extends UpdateCompanion<DietEntry> {
       Value<String?>? notes,
       Value<String?>? foodPhotoUrl,
       Value<int>? synced,
+      Value<String?>? cloudId,
       Value<String>? createdAt,
       Value<String>? updatedAt}) {
     return DietEntriesCompanion(
@@ -4393,6 +4428,7 @@ class DietEntriesCompanion extends UpdateCompanion<DietEntry> {
       notes: notes ?? this.notes,
       foodPhotoUrl: foodPhotoUrl ?? this.foodPhotoUrl,
       synced: synced ?? this.synced,
+      cloudId: cloudId ?? this.cloudId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -4462,6 +4498,9 @@ class DietEntriesCompanion extends UpdateCompanion<DietEntry> {
     if (synced.present) {
       map['synced'] = Variable<int>(synced.value);
     }
+    if (cloudId.present) {
+      map['cloud_id'] = Variable<String>(cloudId.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<String>(createdAt.value);
     }
@@ -4494,6 +4533,7 @@ class DietEntriesCompanion extends UpdateCompanion<DietEntry> {
           ..write('notes: $notes, ')
           ..write('foodPhotoUrl: $foodPhotoUrl, ')
           ..write('synced: $synced, ')
+          ..write('cloudId: $cloudId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -10678,6 +10718,7 @@ typedef $$DietEntriesTableCreateCompanionBuilder = DietEntriesCompanion
   Value<String?> notes,
   Value<String?> foodPhotoUrl,
   Value<int> synced,
+  Value<String?> cloudId,
   Value<String> createdAt,
   Value<String> updatedAt,
 });
@@ -10703,6 +10744,7 @@ typedef $$DietEntriesTableUpdateCompanionBuilder = DietEntriesCompanion
   Value<String?> notes,
   Value<String?> foodPhotoUrl,
   Value<int> synced,
+  Value<String?> cloudId,
   Value<String> createdAt,
   Value<String> updatedAt,
 });
@@ -10780,6 +10822,9 @@ class $$DietEntriesTableFilterComposer
 
   ColumnFilters<int> get synced => $composableBuilder(
       column: $table.synced, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get cloudId => $composableBuilder(
+      column: $table.cloudId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -10865,6 +10910,9 @@ class $$DietEntriesTableOrderingComposer
   ColumnOrderings<int> get synced => $composableBuilder(
       column: $table.synced, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get cloudId => $composableBuilder(
+      column: $table.cloudId, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -10941,6 +10989,9 @@ class $$DietEntriesTableAnnotationComposer
   GeneratedColumn<int> get synced =>
       $composableBuilder(column: $table.synced, builder: (column) => column);
 
+  GeneratedColumn<String> get cloudId =>
+      $composableBuilder(column: $table.cloudId, builder: (column) => column);
+
   GeneratedColumn<String> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -10991,6 +11042,7 @@ class $$DietEntriesTableTableManager extends RootTableManager<
             Value<String?> notes = const Value.absent(),
             Value<String?> foodPhotoUrl = const Value.absent(),
             Value<int> synced = const Value.absent(),
+            Value<String?> cloudId = const Value.absent(),
             Value<String> createdAt = const Value.absent(),
             Value<String> updatedAt = const Value.absent(),
           }) =>
@@ -11015,6 +11067,7 @@ class $$DietEntriesTableTableManager extends RootTableManager<
             notes: notes,
             foodPhotoUrl: foodPhotoUrl,
             synced: synced,
+            cloudId: cloudId,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),
@@ -11039,6 +11092,7 @@ class $$DietEntriesTableTableManager extends RootTableManager<
             Value<String?> notes = const Value.absent(),
             Value<String?> foodPhotoUrl = const Value.absent(),
             Value<int> synced = const Value.absent(),
+            Value<String?> cloudId = const Value.absent(),
             Value<String> createdAt = const Value.absent(),
             Value<String> updatedAt = const Value.absent(),
           }) =>
@@ -11063,6 +11117,7 @@ class $$DietEntriesTableTableManager extends RootTableManager<
             notes: notes,
             foodPhotoUrl: foodPhotoUrl,
             synced: synced,
+            cloudId: cloudId,
             createdAt: createdAt,
             updatedAt: updatedAt,
           ),

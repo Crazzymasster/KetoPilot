@@ -3,19 +3,33 @@ import 'package:metabolicapp/core/themes/app_theme.dart';
 
 class WeeklyMoleculesWidget extends StatelessWidget {
   const WeeklyMoleculesWidget({super.key});
+  
+  //static week data - cached at class level to avoid recalculating on every build
+  static const List<Map<String, dynamic>> _weekData = [
+    {'day': 'Mon', 'glucose': 95.0, 'bhb': 1.2, 'gki': 2.1},
+    {'day': 'Tue', 'glucose': 88.0, 'bhb': 1.8, 'gki': 1.3},
+    {'day': 'Wed', 'glucose': 92.0, 'bhb': 1.5, 'gki': 1.6},
+    {'day': 'Thu', 'glucose': 86.0, 'bhb': 2.1, 'gki': 1.1},
+    {'day': 'Fri', 'glucose': 98.0, 'bhb': 1.0, 'gki': 2.6},
+    {'day': 'Sat', 'glucose': 85.0, 'bhb': 2.3, 'gki': 1.0},
+    {'day': 'Sun', 'glucose': 90.0, 'bhb': 1.7, 'gki': 1.4},
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildLegend(context),
-          const SizedBox(height: 16),
-          _buildChart(context),
-          const SizedBox(height: 16),
-          _buildSummary(context),
-        ],
+    //wrap in repaint boundary to isolate repaints
+    return RepaintBoundary(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLegend(context),
+            const SizedBox(height: 16),
+            _buildChart(context),
+            const SizedBox(height: 16),
+            _buildSummary(context),
+          ],
+        ),
       ),
     );
   }
@@ -54,8 +68,6 @@ class WeeklyMoleculesWidget extends StatelessWidget {
   }
 
   Widget _buildChart(BuildContext context) {
-    final weekData = _getWeekData();
-
     return Container(
       height: 140,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -64,14 +76,14 @@ class WeeklyMoleculesWidget extends StatelessWidget {
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: weekData.map((dayData) {
+              children: _weekData.map((dayData) {
                 return Expanded(child: _buildDayBar(dayData));
               }).toList(),
             ),
           ),
           const SizedBox(height: 8),
           Row(
-            children: weekData.map((dayData) {
+            children: _weekData.map((dayData) {
               return Expanded(
                 child: Text(
                   dayData['day'],
@@ -143,13 +155,13 @@ class WeeklyMoleculesWidget extends StatelessWidget {
   }
 
   Widget _buildSummary(BuildContext context) {
-    final weekData = _getWeekData();
+    //using static _weekData instead of calling _getWeekData() again
     final avgGlucose =
-        weekData.map((d) => d['glucose'] as double).reduce((a, b) => a + b) / 7;
+        _weekData.map((d) => d['glucose'] as double).reduce((a, b) => a + b) / 7;
     final avgBhb =
-        weekData.map((d) => d['bhb'] as double).reduce((a, b) => a + b) / 7;
+        _weekData.map((d) => d['bhb'] as double).reduce((a, b) => a + b) / 7;
     final avgGki =
-        weekData.map((d) => d['gki'] as double).reduce((a, b) => a + b) / 7;
+        _weekData.map((d) => d['gki'] as double).reduce((a, b) => a + b) / 7;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -261,17 +273,5 @@ class WeeklyMoleculesWidget extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  List<Map<String, dynamic>> _getWeekData() {
-    return [
-      {'day': 'Mon', 'glucose': 95.0, 'bhb': 1.2, 'gki': 2.1},
-      {'day': 'Tue', 'glucose': 88.0, 'bhb': 1.8, 'gki': 1.3},
-      {'day': 'Wed', 'glucose': 92.0, 'bhb': 1.5, 'gki': 1.6},
-      {'day': 'Thu', 'glucose': 86.0, 'bhb': 2.1, 'gki': 1.1},
-      {'day': 'Fri', 'glucose': 98.0, 'bhb': 1.0, 'gki': 2.6},
-      {'day': 'Sat', 'glucose': 85.0, 'bhb': 2.3, 'gki': 1.0},
-      {'day': 'Sun', 'glucose': 90.0, 'bhb': 1.7, 'gki': 1.4},
-    ];
   }
 }
