@@ -47,6 +47,7 @@ class UserProvider extends ChangeNotifier {
     _authService.authStateChanges.listen((AuthState state) {
       final event = state.event;
       debugPrint('[USER PROVIDER] Auth event: $event');
+      debugPrint("🔥 AUTH LISTENER TRIGGERED: ${state.event}");
       
       //handle session restoration (fires on app startup if already logged in)
       if (event == AuthChangeEvent.initialSession) {
@@ -117,6 +118,7 @@ class UserProvider extends ChangeNotifier {
   }
 
   //sync user data between Supabase and local database (WITH FIX FOR UNIQUE CONSTRAINT)
+
   Future<void> _syncUserData() async {
     if (_supabaseUser == null) return;
     
@@ -130,6 +132,10 @@ class UserProvider extends ChangeNotifier {
     try {
       final metadata = _supabaseUser!.userMetadata ?? <String, dynamic>{};
       final metadataFullName = _stringFromMetadata(metadata, 'full_name');
+
+      debugPrint("🔥 SYNC USER DATA RUNNING");
+      debugPrint("Supabase metadata full_name: $metadataFullName");
+
       final metadataPhoneNumber = _stringFromMetadata(metadata, 'phone_number');
       final metadataDateOfBirth = _stringFromMetadata(
         metadata,
@@ -194,6 +200,19 @@ class UserProvider extends ChangeNotifier {
         final updatedUser = _currentUser!.copyWith(
           emailVerified: _supabaseUser!.emailConfirmedAt != null ? 1 : 0,
           profileSetupCompleted: profileComplete,
+
+          // Sync data
+          fullName: metadataFullName ?? _currentUser!.fullName,
+          phoneNumber: metadataPhoneNumber ?? _currentUser!.phoneNumber,
+          dateOfBirth: metadataDateOfBirth ?? _currentUser!.dateOfBirth,
+          gender: metadataGender ?? _currentUser!.gender,
+          heightCm: metadataHeight ?? _currentUser!.heightCm,
+          initialWeightKg: metadataWeight ?? _currentUser!.initialWeightKg,
+          targetNetCarbs: metadataTargetNetCarbs ?? _currentUser!.targetNetCarbs,
+          targetProtein: metadataTargetProtein ?? _currentUser!.targetProtein,
+          targetFat: metadataTargetFat ?? _currentUser!.targetFat,
+          targetCalories: metadataTargetCalories ?? _currentUser!.targetCalories,
+          ketoStartDate: metadataKetoStartDate ?? _currentUser!.ketoStartDate,
         );
         await _userDao.updateUser(updatedUser);
         _currentUser = updatedUser;
@@ -279,8 +298,15 @@ class UserProvider extends ChangeNotifier {
         await _updateSupabaseAuthUser(updatedUser);
         await _upsertSupabaseProfile(updatedUser);
       }
+
       await _userDao.updateUser(updatedUser);
-      _currentUser = updatedUser;
+
+      // Read newest info from database
+      final freshUser =
+      await _userDao.getUserById(updatedUser.userId!);
+
+      _currentUser = freshUser ?? updatedUser;
+
       notifyListeners();
       return true;
     } catch (e) {
