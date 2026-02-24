@@ -21,6 +21,7 @@ class DietEntrySyncService {
   }
 
   /// Push unsynced local entries to Supabase
+  /// OPTIMIZED: Uses batch upsert instead of individual inserts
   Future<void> pushToCloud(String supabaseUserId, int localUserId) async {
     if (_isSyncing) {
       debugPrint('[SYNC] Already syncing, skipping push');
@@ -39,36 +40,36 @@ class DietEntrySyncService {
       
       debugPrint('[SYNC] Pushing ${unsynced.length} entries to cloud...');
       
-      for (final entry in unsynced) {
+      // Batch entries for upsert (chunks of 50 for safety)
+      const batchSize = 50;
+      for (var i = 0; i < unsynced.length; i += batchSize) {
+        final batch = unsynced.skip(i).take(batchSize).toList();
+        final payloads = batch.map((e) => _entryToSupabasePayload(e, supabaseUserId)).toList();
+        
         try {
-          //check if already exists in cloud (by local_entry_id)
-          final existing = await client
+          // Batch upsert - much faster than individual inserts
+          final results = await client
               .from('diet_entries')
-              .select('id')
-              .eq('user_id', supabaseUserId)
-              .eq('local_entry_id', entry.entryId!)
-              .maybeSingle();
+              .upsert(
+                payloads,
+                onConflict: 'user_id,local_entry_id',
+              )
+              .select('id,local_entry_id');
           
-          if (existing != null) {
-            //already synced, just update local
-            await _dietEntryDao.markAsSynced(entry.entryId!, existing['id']);
-            continue;
+          // Mark batch as synced
+          for (final result in results) {
+            final localId = result['local_entry_id'] as int?;
+            final cloudId = result['id'] as String;
+            if (localId != null) {
+              await _dietEntryDao.markAsSynced(localId, cloudId);
+            }
           }
           
-          //insert to cloud
-          final payload = _entryToSupabasePayload(entry, supabaseUserId);
-          final result = await client
-              .from('diet_entries')
-              .insert(payload)
-              .select('id')
-              .single();
-          
-          //mark local as synced
-          await _dietEntryDao.markAsSynced(entry.entryId!, result['id']);
-          debugPrint('[SYNC] ✅ Pushed entry ${entry.entryId}');
+          debugPrint('[SYNC] ✅ Pushed batch of ${batch.length} entries');
         } catch (e) {
-          debugPrint('[SYNC] ⚠️ Failed to push entry ${entry.entryId}: $e');
-          //continue with other entries
+          debugPrint('[SYNC] ⚠️ Batch push failed, falling back to individual: $e');
+          // Fallback to individual inserts for this batch
+          await _pushBatchIndividually(batch, supabaseUserId, client);
         }
       }
       
@@ -77,6 +78,40 @@ class DietEntrySyncService {
       debugPrint('[SYNC] ❌ Push error: $e');
     } finally {
       _isSyncing = false;
+    }
+  }
+  
+  /// Fallback: push entries individually if batch fails
+  Future<void> _pushBatchIndividually(
+    List<DietEntryModel> entries,
+    String supabaseUserId,
+    dynamic client,
+  ) async {
+    for (final entry in entries) {
+      try {
+        final existing = await client
+            .from('diet_entries')
+            .select('id')
+            .eq('user_id', supabaseUserId)
+            .eq('local_entry_id', entry.entryId!)
+            .maybeSingle();
+        
+        if (existing != null) {
+          await _dietEntryDao.markAsSynced(entry.entryId!, existing['id']);
+          continue;
+        }
+        
+        final payload = _entryToSupabasePayload(entry, supabaseUserId);
+        final result = await client
+            .from('diet_entries')
+            .insert(payload)
+            .select('id')
+            .single();
+        
+        await _dietEntryDao.markAsSynced(entry.entryId!, result['id']);
+      } catch (e) {
+        debugPrint('[SYNC] ⚠️ Failed to push entry ${entry.entryId}: $e');
+      }
     }
   }
 

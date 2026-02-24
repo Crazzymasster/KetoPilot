@@ -8,6 +8,7 @@ import 'core/database/services/food_database_seeder.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/providers/user_provider.dart';
 import 'core/config/email_config.dart';
+import 'core/config/env_config.dart';
 import 'core/services/supabase_service.dart';
 
 void main() async {
@@ -25,10 +26,17 @@ void main() async {
   // This allows the app to start immediately while DB initializes
   _initializeDatabaseAsync();
 
-  EmailConfig.configureGmail(
-    email: 'ketoapp00@gmail.com',
-    appPassword: 'rxvrkjbanthiaeif',
-  );
+  // Configure email only if environment variables are set
+  // Run with: flutter run --dart-define=GMAIL_EMAIL=xxx --dart-define=GMAIL_APP_PASSWORD=xxx
+  if (EnvConfig.isEmailConfigured) {
+    EmailConfig.configureGmail(
+      email: EnvConfig.gmailEmail,
+      appPassword: EnvConfig.gmailAppPassword,
+    );
+    debugPrint('[MAIN] Email configured from environment');
+  } else {
+    debugPrint('[MAIN] Email not configured - set GMAIL_EMAIL and GMAIL_APP_PASSWORD env vars');
+  }
 
   // Start app immediately without waiting for database
   runApp(const ProviderScope(child: MetabolicHealthApp()));

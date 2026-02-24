@@ -1,19 +1,23 @@
-import 'package:sqflite/sqflite.dart';
 import '../database/database_service.dart';
 import '../database/models/daily_summary_model.dart';
-import '../database/models/user_model.dart';
 import '../database/daos/daily_summary_dao.dart';
 import '../database/daos/diet_entry_dao.dart';
 import '../database/daos/health_log_dao.dart';
 import '../database/daos/user_dao.dart';
+import '../utils/memory_cache.dart';
 
 /// Service for calculating and managing daily summaries
+/// OPTIMIZED: Added caching and batch operations
 class DailySummaryService {
   final DatabaseService _dbService = DatabaseService();
   final DailySummaryDao _summaryDao = DailySummaryDao();
   final DietEntryDao _dietEntryDao = DietEntryDao();
   final HealthLogDao _healthLogDao = HealthLogDao();
   final UserDao _userDao = UserDao();
+  
+  // Pending recalculations (debounce mechanism)
+  static final Map<String, DateTime> _pendingRecalcs = {};
+  static const _debounceDelay = Duration(seconds: 2);
 
   /// Calculate and upsert daily summary for a user and date
   /// Includes caching to avoid unnecessary recalculations
@@ -145,20 +149,46 @@ class DailySummaryService {
   }
 
   /// Calculate summaries for a date range
+  /// OPTIMIZED: Returns cached summaries when available, calculates missing ones
   Future<List<DailySummaryModel>> calculateSummariesForRange({
     required int userId,
     required String startDate,
     required String endDate,
   }) async {
-    final summaries = <DailySummaryModel>[];
+    // First, get any existing cached summaries from the database
+    final existingSummaries = await _summaryDao.getDailySummariesByDateRange(
+      userId,
+      startDate,
+      endDate,
+    );
     
-    // Parse dates and iterate
+    // Build a map of existing summaries by date
+    final existingByDate = <String, DailySummaryModel>{};
+    for (final summary in existingSummaries) {
+      existingByDate[summary.date] = summary;
+    }
+    
+    // Parse dates and find missing ones
     final start = DateTime.parse(startDate);
     final end = DateTime.parse(endDate);
+    final summaries = <DailySummaryModel>[];
     
     var current = start;
     while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
       final dateStr = current.toIso8601String().split('T')[0];
+      
+      // Check if we have a valid cached summary (less than 1 hour old)
+      final existing = existingByDate[dateStr];
+      if (existing != null) {
+        final lastCalc = DateTime.parse(existing.lastCalculatedAt);
+        if (DateTime.now().difference(lastCalc).inHours < 1) {
+          summaries.add(existing);
+          current = current.add(const Duration(days: 1));
+          continue;
+        }
+      }
+      
+      // Calculate fresh summary for this date
       final summary = await calculateDailySummary(userId: userId, date: dateStr);
       summaries.add(summary);
       current = current.add(const Duration(days: 1));
@@ -166,5 +196,50 @@ class DailySummaryService {
     
     return summaries;
   }
+  
+  /// Schedule a debounced recalculation (useful when multiple entries change quickly)
+  void scheduleRecalculation({required int userId, required String date}) {
+    final key = 'user_${userId}_$date';
+    _pendingRecalcs[key] = DateTime.now();
+    
+    // Delay execution to allow batching
+    Future.delayed(_debounceDelay, () async {
+      final scheduledAt = _pendingRecalcs[key];
+      if (scheduledAt == null) return;
+      
+      // Only recalculate if no newer request came in
+      if (DateTime.now().difference(scheduledAt) >= _debounceDelay) {
+        _pendingRecalcs.remove(key);
+        await calculateDailySummary(userId: userId, date: date);
+        // Invalidate cache
+        AppCaches.dailyTotals.invalidate(key);
+      }
+    });
+  }
+  
+  /// Get summary from cache or calculate
+  Future<DailySummaryModel> getSummaryWithCache({
+    required int userId,
+    required String date,
+  }) async {
+    final cacheKey = 'summary_user_${userId}_$date';
+    
+    // Try cache first
+    final cached = AppCaches.dailyTotals.get(cacheKey);
+    if (cached != null && cached is DailySummaryModel) {
+      return cached as DailySummaryModel;
+    }
+    
+    // Check database
+    final existing = await _summaryDao.getDailySummary(userId, date);
+    if (existing != null) {
+      final lastCalc = DateTime.parse(existing.lastCalculatedAt);
+      if (DateTime.now().difference(lastCalc).inMinutes < 30) {
+        return existing;
+      }
+    }
+    
+    // Calculate fresh
+    return await calculateDailySummary(userId: userId, date: date);
+  }
 }
-

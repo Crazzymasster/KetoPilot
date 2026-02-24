@@ -15,6 +15,7 @@ final foodDiaryProvider = StateNotifierProvider.family<FoodDiaryNotifier, AsyncV
 );
 
 /// Notifier for food diary
+/// OPTIMIZED: Uses optimistic updates to avoid full reloads
 class FoodDiaryNotifier extends StateNotifier<AsyncValue<List<DietEntryModel>>> {
   final Ref _ref;
   final DateTime _date;
@@ -37,28 +38,61 @@ class FoodDiaryNotifier extends StateNotifier<AsyncValue<List<DietEntryModel>>> 
     }
   }
 
-  /// Add diet entry
+  /// Add diet entry with optimistic update
   Future<void> addEntry(DietEntryModel entry) async {
-    state = const AsyncValue.loading();
+    final previousState = state;
+    
+    // Optimistic update: immediately show new entry
+    state.whenData((entries) {
+      state = AsyncValue.data([...entries, entry]);
+    });
+    
     try {
       const userId = 1; // TODO: Get from auth provider
-      await _repository.addEntry(entry: entry, userId: userId);
-      await _loadEntries();
+      final entryId = await _repository.addEntry(entry: entry, userId: userId);
+      
+      // Update with real entry ID
+      state.whenData((entries) {
+        final updated = entries.map((e) {
+          if (e == entry) {
+            return e.copyWith(entryId: entryId);
+          }
+          return e;
+        }).toList();
+        state = AsyncValue.data(updated);
+      });
     } catch (error, stackTrace) {
+      // Revert on error
+      state = previousState;
       state = AsyncValue.error(error, stackTrace);
     }
   }
 
-  /// Delete diet entry
+  /// Delete diet entry with optimistic update
   Future<void> deleteEntry(int entryId) async {
-    state = const AsyncValue.loading();
+    final previousState = state;
+    
+    // Optimistic update: immediately remove entry
+    state.whenData((entries) {
+      state = AsyncValue.data(
+        entries.where((e) => e.entryId != entryId).toList(),
+      );
+    });
+    
     try {
       const userId = 1; // TODO: Get from auth provider
       await _repository.deleteEntry(entryId, userId);
-      await _loadEntries();
+      // Success - optimistic update already applied
     } catch (error, stackTrace) {
+      // Revert on error
+      state = previousState;
       state = AsyncValue.error(error, stackTrace);
     }
+  }
+  
+  /// Force refresh entries from database
+  Future<void> refresh() async {
+    await _loadEntries();
   }
 }
 

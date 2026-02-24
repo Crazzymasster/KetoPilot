@@ -3,10 +3,17 @@ import 'package:drift/drift.dart';
 import '../drift_database_service.dart';
 import '../drift_database.dart';
 import '../models/food_model.dart';
+import '../../utils/memory_cache.dart';
 
 /// Food DAO using Drift (works on all platforms including web)
+/// OPTIMIZED: Added search caching and batch operations
 class DriftFoodDao {
   final DriftDatabaseService _dbService = DriftDatabaseService();
+  
+  // In-memory cache for search results (30 min TTL)
+  static final _searchCache = MemoryCache<List<FoodModel>>(
+    defaultTtl: const Duration(minutes: 30),
+  );
 
   Future<AppDatabase> get _db async {
     try {
@@ -88,6 +95,43 @@ class DriftFoodDao {
       debugPrint('[FOOD DAO] ❌ Search error: $e');
       rethrow;
     }
+  }
+
+  /// Search foods with caching (for frequently searched terms)
+  /// OPTIMIZED: Caches search results for 30 minutes
+  Future<List<FoodModel>> searchFoodsCached(String query, {int limit = 20}) async {
+    // Normalize query for consistent cache keys
+    final normalizedQuery = query.toLowerCase().trim();
+    if (normalizedQuery.length < 2) {
+      return []; // Don't search/cache very short queries
+    }
+    
+    final cacheKey = 'search_${normalizedQuery}_$limit';
+    
+    // Try cache first
+    final cached = _searchCache.get(cacheKey);
+    if (cached != null) {
+      return cached;
+    }
+    
+    // Cache miss - perform search
+    final results = await searchFoods(query, limit: limit);
+    _searchCache.set(cacheKey, results);
+    return results;
+  }
+
+  /// Prefetch common searches (call on app startup)
+  Future<void> prefetchCommonSearches() async {
+    final commonTerms = ['egg', 'chicken', 'beef', 'salmon', 'avocado', 'cheese', 'bacon'];
+    for (final term in commonTerms) {
+      await searchFoodsCached(term, limit: 10);
+    }
+    debugPrint('[FOOD DAO] ✅ Prefetched ${commonTerms.length} common searches');
+  }
+
+  /// Clear search cache (call when foods are added/modified)
+  void clearSearchCache() {
+    _searchCache.clear();
   }
 
   /// Get keto-friendly foods
