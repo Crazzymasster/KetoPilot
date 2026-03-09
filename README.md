@@ -235,3 +235,67 @@ flutter build web --release
 - Add unit tests for new features
 - Follow the existing design system
 - Ensure responsive design across all screen sizes
+
+# KetoPilot – Android App
+
+KetoPilot is a metabolic health companion designed to support individuals adopting ketogenic metabolic therapy.
+
+## Android Installation (Beta Testing)
+
+You can download and install the Android version of the app using the link below.
+
+### Step 1: Download the APK
+
+Download the APK file from Google Drive:
+
+[https://YOUR_GOOGLE_DRIVE_LINK_HERE](https://drive.google.com/drive/folders/1eSZwdQmKa4MQI49mT0Lp32VNZmnQCuFV?usp=sharing)
+
+Download the latest version file.
+
+---
+
+### Step 2: Allow Installation from Unknown Sources
+
+Because the app is not installed from the Google Play Store, Android may block the installation.
+
+If prompted:
+
+1. Tap **Settings**
+2. Enable **Allow from this source** or **Install unknown apps** for your browser or file manager.
+
+---
+
+### Step 3: Install the App
+
+1. Open the downloaded **APK file**
+2. Tap **Install**
+3. Wait for the installation to complete
+
+---
+
+### Step 4: Open the App
+
+After installation:
+
+1. Tap **Open**, or  
+2. Find **KetoPilot** in your phone’s app list.
+
+---
+
+## Updating the App
+
+When a new version is released:
+
+1. Download the new APK
+2. Install it normally
+3. Android will automatically update the existing app
+
+No need to uninstall the previous version.
+
+---
+
+## Notes
+
+- This app is currently in **beta testing**
+- Some features may still change
+- If you encounter bugs, please report them via GitHub Issues
