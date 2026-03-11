@@ -481,6 +481,7 @@ class DatabaseSchema {
         energy_level INTEGER CHECK(energy_level BETWEEN 0 AND 10),
         mental_clarity INTEGER CHECK(mental_clarity BETWEEN 0 AND 10),
         mood_rating INTEGER CHECK(mood_rating BETWEEN 0 AND 10),
+        sleep_quality INTEGER CHECK(sleep_quality BETWEEN 0 AND 10), -- ADDED
         hunger_level INTEGER CHECK(hunger_level BETWEEN 0 AND 10),
         satiety_level INTEGER CHECK(satiety_level BETWEEN 0 AND 10),
         
@@ -493,7 +494,8 @@ class DatabaseSchema {
         synced INTEGER DEFAULT 0,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         
-        FOREIGN KEY (user_id) REFERENCES tb_user(user_id) ON DELETE CASCADE
+        FOREIGN KEY (user_id) REFERENCES tb_user(user_id) ON DELETE CASCADE,
+        UNIQUE(user_id, date) -- ADDED
       )
     ''');
   }
@@ -712,4 +714,3 @@ class DatabaseSchema {
     ''');
   }
 }
-

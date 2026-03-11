@@ -38,7 +38,7 @@ class UserModel {
     this.phoneNumber,
     this.fullName,
     this.dateOfBirth,
-    this.gender,
+    String? gender, // CHANGED: take raw gender input, normalize below
     this.heightCm,
     this.initialWeightKg,
     this.targetNetCarbs = 20.0,
@@ -60,8 +60,31 @@ class UserModel {
     String? createdAt,
     String? updatedAt,
     this.lastLogin,
-  })  : createdAt = createdAt ?? DateTime.now().toIso8601String(),
+  })  : gender = _normalizeGender(gender), // CHANGED: always normalize for SQLite constraint
+        createdAt = createdAt ?? DateTime.now().toIso8601String(),
         updatedAt = updatedAt ?? DateTime.now().toIso8601String();
+
+  // CHANGED: helper to normalize gender values to match SQLite CHECK constraint
+  static String? _normalizeGender(String? gender) {
+    if (gender == null) return null;
+
+    final value = gender.trim();
+    if (value.isEmpty) return null;
+
+    switch (value.toLowerCase()) {
+      case 'male':
+        return 'male';
+      case 'female':
+        return 'female';
+      case 'other':
+        return 'other';
+      case 'prefer_not_to_say':
+      case 'prefer not to say':
+        return 'prefer_not_to_say';
+      default:
+        return null; // CHANGED: invalid values become null instead of breaking insert
+    }
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -72,7 +95,7 @@ class UserModel {
       'phone_number': phoneNumber,
       'full_name': fullName,
       'date_of_birth': dateOfBirth,
-      'gender': gender,
+      'gender': gender, // CHANGED: already normalized in constructor
       'height_cm': heightCm,
       'initial_weight_kg': initialWeightKg,
       'target_net_carbs': targetNetCarbs,
@@ -106,13 +129,13 @@ class UserModel {
       phoneNumber: map['phone_number'] as String?,
       fullName: map['full_name'] as String?,
       dateOfBirth: map['date_of_birth'] as String?,
-      gender: map['gender'] as String?,
-      heightCm: map['height_cm'] as double?,
-      initialWeightKg: map['initial_weight_kg'] as double?,
-      targetNetCarbs: map['target_net_carbs'] as double? ?? 20.0,
-      targetProtein: map['target_protein'] as double?,
-      targetFat: map['target_fat'] as double?,
-      targetCalories: map['target_calories'] as double?,
+      gender: map['gender'] as String?, // CHANGED: constructor will normalize
+      heightCm: (map['height_cm'] as num?)?.toDouble(), // CHANGED: safer cast
+      initialWeightKg: (map['initial_weight_kg'] as num?)?.toDouble(), // CHANGED: safer cast
+      targetNetCarbs: (map['target_net_carbs'] as num?)?.toDouble() ?? 20.0, // CHANGED
+      targetProtein: (map['target_protein'] as num?)?.toDouble(), // CHANGED
+      targetFat: (map['target_fat'] as num?)?.toDouble(), // CHANGED
+      targetCalories: (map['target_calories'] as num?)?.toDouble(), // CHANGED
       ketoStartDate: map['keto_start_date'] as String?,
       medicalConditions: map['medical_conditions'] as String?,
       goals: map['goals'] as String?,
@@ -170,7 +193,7 @@ class UserModel {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       fullName: fullName ?? this.fullName,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-      gender: gender ?? this.gender,
+      gender: gender ?? this.gender, // CHANGED: constructor will normalize
       heightCm: heightCm ?? this.heightCm,
       initialWeightKg: initialWeightKg ?? this.initialWeightKg,
       targetNetCarbs: targetNetCarbs ?? this.targetNetCarbs,
@@ -182,17 +205,18 @@ class UserModel {
       goals: goals ?? this.goals,
       iotDevices: iotDevices ?? this.iotDevices,
       foodCreationCount: foodCreationCount ?? this.foodCreationCount,
-      foodCreationWindowStart: foodCreationWindowStart ?? this.foodCreationWindowStart,
+      foodCreationWindowStart:
+      foodCreationWindowStart ?? this.foodCreationWindowStart,
       maxFoodsPerWindow: maxFoodsPerWindow ?? this.maxFoodsPerWindow,
       windowDurationDays: windowDurationDays ?? this.windowDurationDays,
       researchConsent: researchConsent ?? this.researchConsent,
       dataSharingConsent: dataSharingConsent ?? this.dataSharingConsent,
       anonymousId: anonymousId ?? this.anonymousId,
-      profileSetupCompleted: profileSetupCompleted ?? this.profileSetupCompleted,
+      profileSetupCompleted:
+      profileSetupCompleted ?? this.profileSetupCompleted,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastLogin: lastLogin ?? this.lastLogin,
     );
   }
 }
-

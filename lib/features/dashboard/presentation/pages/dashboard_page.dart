@@ -13,6 +13,7 @@ import '../widgets/molecule_bars_widget.dart';
 import '../widgets/swipeable_section_widget.dart';
 import '../widgets/weekly_nutrition_widget.dart';
 import '../widgets/weekly_molecules_widget.dart';
+import '../widgets/weekly_health_widget.dart';
 
 @RoutePage()
 class DashboardPage extends ConsumerStatefulWidget {
@@ -686,11 +687,44 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
         const SizedBox(height: 8),
 
+        // Health Section - weekly only
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Health',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () => context.router.pushNamed('/health-logging'),
+                        child: const Text('Health Log'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const WeeklyHealthWidget(),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
         // Swipeable Molecules Section (Daily/Weekly)
         SwipeableSectionWidget(
           title: 'Biomarkers',
           dailyWidget: MoleculeBarsWidget(
-            glucoseMgDl: 85.0, // Example values
+            glucoseMgDl: 85.0,
             bhbMmol: 1.2,
             gki: 4.1,
             glucoseTarget: 100.0,

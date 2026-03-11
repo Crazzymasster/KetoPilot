@@ -2,6 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // CHANGED: added Riverpod
 import 'package:intl/intl.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../../shared/widgets/app_drawer.dart';
@@ -11,16 +12,19 @@ import '../../../../core/database/daos/diet_entry_dao.dart';
 import '../../../../core/database/daos/drift_food_dao.dart';
 import '../../../../core/database/daos/food_dao.dart';
 import '../../../../core/database/models/food_model.dart';
+import '../../../../core/providers/user_provider.dart'; // CHANGED: added user provider
 
 @RoutePage()
-class DataEntryPage extends StatefulWidget {
+class DataEntryPage extends ConsumerStatefulWidget {
+  // CHANGED: StatefulWidget -> ConsumerStatefulWidget
   const DataEntryPage({super.key});
 
   @override
-  State<DataEntryPage> createState() => _DataEntryPageState();
+  ConsumerState<DataEntryPage> createState() => _DataEntryPageState();
+// CHANGED: State -> ConsumerState
 }
 
-class _DataEntryPageState extends State<DataEntryPage>
+class _DataEntryPageState extends ConsumerState<DataEntryPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -43,7 +47,8 @@ class _DataEntryPageState extends State<DataEntryPage>
   final DriftFoodDao _driftFoodDao = DriftFoodDao();
   final FoodDao? _foodDao = kIsWeb ? null : FoodDao();
 
-  static const int _userId = 1; // TODO: Get from auth provider
+  // static const int _userId = 1; // TODO: Get from auth provider
+  // CHANGED: removed hardcoded user id
 
   @override
   void initState() {
@@ -77,7 +82,8 @@ class _DataEntryPageState extends State<DataEntryPage>
           controller: _tabController,
           indicatorColor: Theme.of(context).colorScheme.onPrimary,
           labelColor: Theme.of(context).colorScheme.onPrimary,
-          unselectedLabelColor: Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
+          unselectedLabelColor:
+          Theme.of(context).colorScheme.onPrimary.withOpacity(0.7),
           tabs: [
             Tab(
               icon: Icon(
@@ -312,7 +318,10 @@ class _DataEntryPageState extends State<DataEntryPage>
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.7),
                   ),
                 ),
               ],
@@ -440,10 +449,12 @@ class _DataEntryPageState extends State<DataEntryPage>
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                  color:
+                  Theme.of(context).colorScheme.primary.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    color:
+                    Theme.of(context).colorScheme.primary.withOpacity(0.2),
                   ),
                 ),
                 child: Column(
@@ -472,13 +483,13 @@ class _DataEntryPageState extends State<DataEntryPage>
   }
 
   Widget _buildMacroInputCard(
-    String label,
-    String unit,
-    TextEditingController controller,
-    Color color,
-    String target,
-    IconData icon,
-  ) {
+      String label,
+      String unit,
+      TextEditingController controller,
+      Color color,
+      String target,
+      IconData icon,
+      ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -544,13 +555,13 @@ class _DataEntryPageState extends State<DataEntryPage>
   }
 
   Widget _buildBiomarkerInputCard(
-    String label,
-    String unit,
-    TextEditingController controller,
-    Color color,
-    String target,
-    IconData icon,
-  ) {
+      String label,
+      String unit,
+      TextEditingController controller,
+      Color color,
+      String target,
+      IconData icon,
+      ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -695,7 +706,6 @@ class _DataEntryPageState extends State<DataEntryPage>
         ),
       );
 
-      // Clear fields after successful save
       if (isNutrition) {
         _carbsController.clear();
         _proteinController.clear();
@@ -706,7 +716,6 @@ class _DataEntryPageState extends State<DataEntryPage>
         _weightController.clear();
       }
 
-      // Navigate to dashboard after a short delay
       Future.delayed(const Duration(seconds: 1), () {
         if (mounted) {
           context.router.pushNamed('/dashboard');
@@ -733,13 +742,18 @@ class _DataEntryPageState extends State<DataEntryPage>
       throw Exception('Please enter at least one macro value');
     }
 
-    // Calculate calories (approximate: 4 cal/g for carbs and protein, 9 cal/g for fat)
-    final calories = (carbs * 4) + (protein * 4) + (fat * 9);
-    final netCarbs = carbs; // Assuming no fiber for manual entry
+    // CHANGED: get current user from provider instead of hardcoded _userId
+    final user = ref.read(userProvider).currentUser;
+    if (user == null || user.userId == null) {
+      throw Exception('No logged in user found.');
+    }
 
-    // Create a temporary food entry for "Daily Totals"
+    final calories = (carbs * 4) + (protein * 4) + (fat * 9);
+    final netCarbs = carbs;
+
     final food = FoodModel(
-      foodDescription: 'Daily Totals - ${DateFormat('MMM dd').format(_selectedDateTime)}',
+      foodDescription:
+      'Daily Totals - ${DateFormat('MMM dd').format(_selectedDateTime)}',
       energyKcal: calories,
       totalProteinG: protein,
       totalFatG: fat,
@@ -750,15 +764,13 @@ class _DataEntryPageState extends State<DataEntryPage>
       isKetoFriendly: netCarbs <= 20 ? 1 : 0,
     );
 
-    // Insert food first
     final foodId = kIsWeb
         ? await _driftFoodDao.insertFood(food)
         : await _foodDao!.insertFood(food);
 
-    // Create diet entry
     final dateStr = _selectedDateTime.toIso8601String().split('T')[0];
     final dietEntry = DietEntryModel(
-      userId: _userId,
+      userId: user.userId!, // CHANGED: use provider user id
       foodId: foodId,
       recordedAt: _selectedDateTime.toIso8601String(),
       date: dateStr,
@@ -772,7 +784,6 @@ class _DataEntryPageState extends State<DataEntryPage>
       notes: 'Manual entry from Data Entry page',
     );
 
-    // Insert diet entry
     if (kIsWeb) {
       await _driftDietEntryDao.insertDietEntry(dietEntry);
     } else {
@@ -781,8 +792,6 @@ class _DataEntryPageState extends State<DataEntryPage>
   }
 
   Future<void> _saveBiomarkerData() async {
-    // TODO: Implement biomarker saving to health_logs table
-    // For now, just show a message
     final glucose = double.tryParse(_glucoseController.text);
     final bhb = double.tryParse(_bhbController.text);
     final weight = double.tryParse(_weightController.text);
@@ -792,7 +801,6 @@ class _DataEntryPageState extends State<DataEntryPage>
     }
 
     // TODO: Save to health_logs table
-    // This requires implementing HealthLogDao with Drift support
     debugPrint('Biomarker data: Glucose=$glucose, BHB=$bhb, Weight=$weight');
   }
 

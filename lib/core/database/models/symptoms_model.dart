@@ -14,6 +14,7 @@ class SymptomsModel {
   final int? energyLevel;
   final int? mentalClarity;
   final int? moodRating;
+  final int? sleepQuality; // ADDED
   final int? hungerLevel;
   final int? satietyLevel;
   final int? bloatingSeverity;
@@ -38,6 +39,7 @@ class SymptomsModel {
     this.energyLevel,
     this.mentalClarity,
     this.moodRating,
+    this.sleepQuality, // ADDED
     this.hungerLevel,
     this.satietyLevel,
     this.bloatingSeverity,
@@ -64,6 +66,7 @@ class SymptomsModel {
       'energy_level': energyLevel,
       'mental_clarity': mentalClarity,
       'mood_rating': moodRating,
+      'sleep_quality': sleepQuality, // ADDED
       'hunger_level': hungerLevel,
       'satiety_level': satietyLevel,
       'bloating_severity': bloatingSeverity,
@@ -91,6 +94,7 @@ class SymptomsModel {
       energyLevel: map['energy_level'] as int?,
       mentalClarity: map['mental_clarity'] as int?,
       moodRating: map['mood_rating'] as int?,
+      sleepQuality: map['sleep_quality'] as int?, // ADDED
       hungerLevel: map['hunger_level'] as int?,
       satietyLevel: map['satiety_level'] as int?,
       bloatingSeverity: map['bloating_severity'] as int?,
@@ -102,4 +106,3 @@ class SymptomsModel {
     );
   }
 }
-

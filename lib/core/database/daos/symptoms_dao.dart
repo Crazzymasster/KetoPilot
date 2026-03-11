@@ -38,16 +38,28 @@ class SymptomsDao {
 
   /// Get symptoms for a user within a date range
   Future<List<SymptomsModel>> getSymptomsByDateRange(
-    int userId,
-    String startDate,
-    String endDate,
-  ) async {
+      int userId,
+      String startDate,
+      String endDate,
+      ) async {
     final db = await _dbService.database;
     final maps = await db.query(
       'tb_symptoms',
       where: 'user_id = ? AND date >= ? AND date <= ?',
       whereArgs: [userId, startDate, endDate],
       orderBy: 'recorded_at ASC',
+    );
+    return maps.map((map) => SymptomsModel.fromMap(map)).toList();
+  }
+
+  /// Get last 7 days of symptom logs (used for weekly graph)
+  Future<List<SymptomsModel>> getLast7DaysSymptoms(int userId, String endDate, String startDate) async {
+    final db = await _dbService.database;
+    final maps = await db.query(
+      'tb_symptoms',
+      where: 'user_id = ? AND date >= ? AND date <= ?',
+      whereArgs: [userId, startDate, endDate],
+      orderBy: 'date ASC',
     );
     return maps.map((map) => SymptomsModel.fromMap(map)).toList();
   }
@@ -73,4 +85,3 @@ class SymptomsDao {
     );
   }
 }
-

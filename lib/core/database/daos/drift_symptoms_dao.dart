@@ -1,32 +1,32 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb; // CHANGED: detect web
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // CHANGED: use Riverpod
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/themes/app_theme.dart';
-import '../../../../core/database/daos/symptoms_dao.dart';
-import '../../../../core/database/models/symptoms_model.dart';
-import '../../../../core/providers/user_provider.dart';
-import '../../../../core/database/database_service.dart';
-import '../../../../core/database/daos/user_dao.dart'; // CHANGED
+import '../../../../core/database/daos/symptoms_dao.dart'; // CHANGED: real DAO for mobile
+import '../../../../core/database/models/symptoms_model.dart'; // CHANGED: symptoms model
+import '../../../../core/providers/user_provider.dart'; // CHANGED: current user
 
 @RoutePage()
 class HealthLoggingPage extends ConsumerStatefulWidget {
+  // CHANGED: StatefulWidget -> ConsumerStatefulWidget
   const HealthLoggingPage({super.key});
 
   @override
   ConsumerState<HealthLoggingPage> createState() => _HealthLoggingPageState();
+// CHANGED: State -> ConsumerState
 }
 
 class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
   final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
 
-  final UserDao? _userDao = kIsWeb ? null : UserDao(); // CHANGED
   final SymptomsDao? _symptomsDao = kIsWeb ? null : SymptomsDao();
+  // CHANGED: do not create sqflite DAO on web
 
-  bool _isSaving = false;
+  bool _isSaving = false; // CHANGED
 
   DateTime _selectedDate = DateTime.now();
   int _energyLevel = 5;
@@ -61,7 +61,7 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isWebMode = kIsWeb;
+    final isWebMode = kIsWeb; // CHANGED
 
     return Scaffold(
       appBar: AppBar(
@@ -83,6 +83,7 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isWebMode) ...[
+                // CHANGED: warning banner for web
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -93,7 +94,7 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
                     border: Border.all(color: Colors.orange.withOpacity(0.35)),
                   ),
                   child: const Text(
-                    'Health log saving is not supported on web yet. Please use Android/iOS, or add a web-compatible DAO later.',
+                    'Health log saving is not supported on web yet because this page still uses sqflite. Please use Android/iOS or add a Drift symptoms DAO for web support.',
                     style: TextStyle(fontSize: 13),
                   ),
                 ),
@@ -119,7 +120,7 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
       child: ListTile(
         leading: const Icon(Icons.calendar_today),
         title: const Text('Date'),
-        subtitle: Text(_formatDisplayDate(_selectedDate)),
+        subtitle: Text(_formatDisplayDate(_selectedDate)), // CHANGED
         trailing: const Icon(Icons.arrow_forward_ios),
         onTap: () async {
           final date = await showDatePicker(
@@ -147,10 +148,9 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
           children: [
             Text(
               'How are you feeling today?',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             _buildScaleSlider(
@@ -197,10 +197,9 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
           children: [
             Text(
               label,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w500),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -236,17 +235,15 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
           children: [
             Text(
               'Poor',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
             ),
             Text(
               'Excellent',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
             ),
           ],
         ),
@@ -264,18 +261,16 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
           children: [
             Text(
               'Symptoms',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               'Select any symptoms you\'re experiencing today',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -315,18 +310,16 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
           children: [
             Text(
               'Additional Notes',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               'Any additional observations about your health today',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -349,6 +342,7 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
       width: double.infinity,
       child: ElevatedButton(
         onPressed: (_isSaving || kIsWeb) ? null : _saveHealthLog,
+        // CHANGED: disable save on web
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
         ),
@@ -364,10 +358,12 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
   }
 
   String _formatDisplayDate(DateTime date) {
+    // CHANGED
     return '${date.day}/${date.month}/${date.year}';
   }
 
   String _formatDbDate(DateTime date) {
+    // CHANGED
     return '${date.year.toString().padLeft(4, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
@@ -375,11 +371,12 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
 
   Future<void> _saveHealthLog() async {
     if (kIsWeb) {
+      // CHANGED: extra safety guard
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Saving health logs on web is not supported yet. Please use Android/iOS.',
+            'Saving health logs on web is not supported yet. Please use Android/iOS or add a Drift symptoms DAO.',
           ),
           backgroundColor: AppTheme.errorColor,
         ),
@@ -398,63 +395,8 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
     try {
       final user = ref.read(userProvider).currentUser;
 
-      // DEBUG: inspect provider user
-      debugPrint('DEBUG currentUser = $user');
-      debugPrint('DEBUG currentUser.userId = ${user?.userId}');
-      debugPrint('DEBUG currentUser.fullName = ${user?.fullName}');
-
       if (user == null || user.userId == null) {
         throw Exception('No logged in user found.');
-      }
-
-      // DEBUG: inspect local database tables and parent user row
-      final db = await DatabaseService().database;
-
-      final tables = await db.rawQuery(
-        "SELECT name, sql FROM sqlite_master WHERE type='table'",
-      );
-      debugPrint('DEBUG sqlite tables = $tables');
-
-      for (final tableName in ['tb_user', 'tb_users', 'users', 'user']) {
-        try {
-          final rows = await db.rawQuery(
-            'SELECT * FROM $tableName WHERE user_id = ?',
-            [user.userId!],
-          );
-          debugPrint(
-            'DEBUG rows in $tableName for user_id=${user.userId!} => $rows',
-          );
-        } catch (e) {
-          debugPrint('DEBUG table check failed for $tableName => $e');
-        }
-      }
-
-      // CHANGED: ensure sqflite tb_user has the parent row before saving symptoms
-      final localUser = await _userDao!.getUserById(user.userId!);
-      debugPrint(
-        'DEBUG sqflite localUser before symptom save = ${localUser?.toMap()}',
-      );
-
-      if (localUser == null) {
-        debugPrint(
-          'DEBUG inserting missing sqflite tb_user row for user_id=${user.userId!}',
-        );
-
-        await _userDao!.insertUser(
-          user.copyWith(
-            updatedAt: DateTime.now().toIso8601String(),
-            lastLogin: DateTime.now().toIso8601String(),
-          ),
-        );
-
-        final verifyUser = await _userDao!.getUserById(user.userId!);
-        debugPrint(
-          'DEBUG sqflite localUser after insert = ${verifyUser?.toMap()}',
-        );
-
-        if (verifyUser == null) {
-          throw Exception('Failed to create local user row in sqflite tb_user.');
-        }
       }
 
       final dbDate = _formatDbDate(_selectedDate);
@@ -506,24 +448,16 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
         bloatingSeverity: null,
         digestionQuality: null,
         customSymptoms: customSymptoms.isEmpty ? null : customSymptoms,
-        additionalNotes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
+        additionalNotes:
+        _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
         synced: 0,
         createdAt: nowIso,
       );
-
-      // DEBUG: inspect payload before insert/update
-      debugPrint('DEBUG save userId = ${user.userId!}');
-      debugPrint('DEBUG save date = $dbDate');
-      debugPrint('DEBUG save symptom map = ${symptom.toMap()}');
 
       final existingLogs = await _symptomsDao!.getSymptomsByDate(
         user.userId!,
         dbDate,
       );
-
-      debugPrint('DEBUG existing logs count = ${existingLogs.length}');
 
       if (existingLogs.isNotEmpty) {
         final existing = existingLogs.first;
@@ -549,17 +483,14 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
           bloatingSeverity: null,
           digestionQuality: null,
           customSymptoms: customSymptoms.isEmpty ? null : customSymptoms,
-          additionalNotes: _notesController.text.trim().isEmpty
-              ? null
-              : _notesController.text.trim(),
+          additionalNotes:
+          _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
           synced: existing.synced,
           createdAt: existing.createdAt,
         );
 
-        debugPrint('DEBUG updating symptomId = ${existing.symptomId}');
         await _symptomsDao!.updateSymptoms(updatedSymptom);
       } else {
-        debugPrint('DEBUG inserting new symptom row');
         await _symptomsDao!.insertSymptoms(symptom);
       }
 
@@ -583,8 +514,6 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
 
       context.router.pop(true);
     } catch (e) {
-      debugPrint('DEBUG save health log error = $e');
-
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
