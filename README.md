@@ -268,8 +268,9 @@ If prompted:
 ### Step 3: Install the App
 
 1. Open the downloaded **APK file**
-2. Tap **Install**
-3. Wait for the installation to complete
+2. Find it in **Files**
+3. Tap **Install** and allow scanning
+4. Wait for the installation to complete
 
 ---
 
