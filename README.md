@@ -248,7 +248,7 @@ You can download and install the Android version of the app using the link below
 
 Download the APK file from Google Drive:
 
-[https://YOUR_GOOGLE_DRIVE_LINK_HERE](https://drive.google.com/drive/folders/1eSZwdQmKa4MQI49mT0Lp32VNZmnQCuFV?usp=sharing)
+[https://KetoPilot_apk](https://drive.google.com/drive/folders/1eSZwdQmKa4MQI49mT0Lp32VNZmnQCuFV?usp=sharing)
 
 Download the latest version file.
 
