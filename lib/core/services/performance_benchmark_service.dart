@@ -1,9 +1,11 @@
 import 'dart:async';
-import '../database/database_service.dart';
+import 'package:drift/drift.dart';
+import '../database/drift_database_service.dart';
 
 /// Service for performance benchmarking and monitoring
+/// Uses Drift database for all platforms
 class PerformanceBenchmarkService {
-  final DatabaseService _dbService = DatabaseService();
+  final DriftDatabaseService _dbService = DriftDatabaseService();
 
   /// Benchmark a query execution time
   Future<QueryBenchmarkResult> benchmarkQuery(
@@ -38,11 +40,10 @@ class PerformanceBenchmarkService {
       'Dashboard Query',
       () async {
         final db = await _dbService.database;
-        await db.query(
-          'tb_daily_summary',
-          where: 'user_id = ? AND date = ?',
-          whereArgs: [userId, date],
-        );
+        await db.customSelect(
+          'SELECT * FROM daily_summaries WHERE user_id = ? AND date = ?',
+          variables: [Variable.withInt(userId), Variable.withString(date)],
+        ).get();
       },
     );
   }
@@ -53,12 +54,10 @@ class PerformanceBenchmarkService {
       'Food Search',
       () async {
         final db = await _dbService.database;
-        await db.query(
-          'tb_food',
-          where: 'food_description LIKE ?',
-          whereArgs: ['%$query%'],
-          limit: 20,
-        );
+        await db.customSelect(
+          'SELECT * FROM foods WHERE food_description LIKE ? LIMIT 20',
+          variables: [Variable.withString('%$query%')],
+        ).get();
       },
     );
   }
@@ -69,12 +68,12 @@ class PerformanceBenchmarkService {
       'Weekly Report',
       () async {
         final db = await _dbService.database;
-        await db.rawQuery('''
-          SELECT * FROM tb_daily_summary 
+        await db.customSelect('''
+          SELECT * FROM daily_summaries 
           WHERE user_id = ? 
             AND date >= date('now', '-7 days')
           ORDER BY date
-        ''', [userId]);
+        ''', variables: [Variable.withInt(userId)]).get();
       },
     );
   }

@@ -8266,6 +8266,12 @@ class $SymptomsTable extends Symptoms with TableInfo<$SymptomsTable, Symptom> {
   late final GeneratedColumn<int> moodRating = GeneratedColumn<int>(
       'mood_rating', aliasedName, true,
       type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _sleepQualityMeta =
+      const VerificationMeta('sleepQuality');
+  @override
+  late final GeneratedColumn<int> sleepQuality = GeneratedColumn<int>(
+      'sleep_quality', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _hungerLevelMeta =
       const VerificationMeta('hungerLevel');
   @override
@@ -8333,6 +8339,7 @@ class $SymptomsTable extends Symptoms with TableInfo<$SymptomsTable, Symptom> {
         energyLevel,
         mentalClarity,
         moodRating,
+        sleepQuality,
         hungerLevel,
         satietyLevel,
         bloatingSeverity,
@@ -8436,6 +8443,12 @@ class $SymptomsTable extends Symptoms with TableInfo<$SymptomsTable, Symptom> {
           moodRating.isAcceptableOrUnknown(
               data['mood_rating']!, _moodRatingMeta));
     }
+    if (data.containsKey('sleep_quality')) {
+      context.handle(
+          _sleepQualityMeta,
+          sleepQuality.isAcceptableOrUnknown(
+              data['sleep_quality']!, _sleepQualityMeta));
+    }
     if (data.containsKey('hunger_level')) {
       context.handle(
           _hungerLevelMeta,
@@ -8517,6 +8530,8 @@ class $SymptomsTable extends Symptoms with TableInfo<$SymptomsTable, Symptom> {
           .read(DriftSqlType.int, data['${effectivePrefix}mental_clarity']),
       moodRating: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}mood_rating']),
+      sleepQuality: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sleep_quality']),
       hungerLevel: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}hunger_level']),
       satietyLevel: attachedDatabase.typeMapping
@@ -8557,6 +8572,7 @@ class Symptom extends DataClass implements Insertable<Symptom> {
   final int? energyLevel;
   final int? mentalClarity;
   final int? moodRating;
+  final int? sleepQuality;
   final int? hungerLevel;
   final int? satietyLevel;
   final int? bloatingSeverity;
@@ -8580,6 +8596,7 @@ class Symptom extends DataClass implements Insertable<Symptom> {
       this.energyLevel,
       this.mentalClarity,
       this.moodRating,
+      this.sleepQuality,
       this.hungerLevel,
       this.satietyLevel,
       this.bloatingSeverity,
@@ -8624,6 +8641,9 @@ class Symptom extends DataClass implements Insertable<Symptom> {
     }
     if (!nullToAbsent || moodRating != null) {
       map['mood_rating'] = Variable<int>(moodRating);
+    }
+    if (!nullToAbsent || sleepQuality != null) {
+      map['sleep_quality'] = Variable<int>(sleepQuality);
     }
     if (!nullToAbsent || hungerLevel != null) {
       map['hunger_level'] = Variable<int>(hungerLevel);
@@ -8684,6 +8704,9 @@ class Symptom extends DataClass implements Insertable<Symptom> {
       moodRating: moodRating == null && nullToAbsent
           ? const Value.absent()
           : Value(moodRating),
+      sleepQuality: sleepQuality == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sleepQuality),
       hungerLevel: hungerLevel == null && nullToAbsent
           ? const Value.absent()
           : Value(hungerLevel),
@@ -8727,6 +8750,7 @@ class Symptom extends DataClass implements Insertable<Symptom> {
       energyLevel: serializer.fromJson<int?>(json['energyLevel']),
       mentalClarity: serializer.fromJson<int?>(json['mentalClarity']),
       moodRating: serializer.fromJson<int?>(json['moodRating']),
+      sleepQuality: serializer.fromJson<int?>(json['sleepQuality']),
       hungerLevel: serializer.fromJson<int?>(json['hungerLevel']),
       satietyLevel: serializer.fromJson<int?>(json['satietyLevel']),
       bloatingSeverity: serializer.fromJson<int?>(json['bloatingSeverity']),
@@ -8755,6 +8779,7 @@ class Symptom extends DataClass implements Insertable<Symptom> {
       'energyLevel': serializer.toJson<int?>(energyLevel),
       'mentalClarity': serializer.toJson<int?>(mentalClarity),
       'moodRating': serializer.toJson<int?>(moodRating),
+      'sleepQuality': serializer.toJson<int?>(sleepQuality),
       'hungerLevel': serializer.toJson<int?>(hungerLevel),
       'satietyLevel': serializer.toJson<int?>(satietyLevel),
       'bloatingSeverity': serializer.toJson<int?>(bloatingSeverity),
@@ -8781,6 +8806,7 @@ class Symptom extends DataClass implements Insertable<Symptom> {
           Value<int?> energyLevel = const Value.absent(),
           Value<int?> mentalClarity = const Value.absent(),
           Value<int?> moodRating = const Value.absent(),
+          Value<int?> sleepQuality = const Value.absent(),
           Value<int?> hungerLevel = const Value.absent(),
           Value<int?> satietyLevel = const Value.absent(),
           Value<int?> bloatingSeverity = const Value.absent(),
@@ -8818,6 +8844,8 @@ class Symptom extends DataClass implements Insertable<Symptom> {
         mentalClarity:
             mentalClarity.present ? mentalClarity.value : this.mentalClarity,
         moodRating: moodRating.present ? moodRating.value : this.moodRating,
+        sleepQuality:
+            sleepQuality.present ? sleepQuality.value : this.sleepQuality,
         hungerLevel: hungerLevel.present ? hungerLevel.value : this.hungerLevel,
         satietyLevel:
             satietyLevel.present ? satietyLevel.value : this.satietyLevel,
@@ -8870,6 +8898,9 @@ class Symptom extends DataClass implements Insertable<Symptom> {
           : this.mentalClarity,
       moodRating:
           data.moodRating.present ? data.moodRating.value : this.moodRating,
+      sleepQuality: data.sleepQuality.present
+          ? data.sleepQuality.value
+          : this.sleepQuality,
       hungerLevel:
           data.hungerLevel.present ? data.hungerLevel.value : this.hungerLevel,
       satietyLevel: data.satietyLevel.present
@@ -8909,6 +8940,7 @@ class Symptom extends DataClass implements Insertable<Symptom> {
           ..write('energyLevel: $energyLevel, ')
           ..write('mentalClarity: $mentalClarity, ')
           ..write('moodRating: $moodRating, ')
+          ..write('sleepQuality: $sleepQuality, ')
           ..write('hungerLevel: $hungerLevel, ')
           ..write('satietyLevel: $satietyLevel, ')
           ..write('bloatingSeverity: $bloatingSeverity, ')
@@ -8937,6 +8969,7 @@ class Symptom extends DataClass implements Insertable<Symptom> {
         energyLevel,
         mentalClarity,
         moodRating,
+        sleepQuality,
         hungerLevel,
         satietyLevel,
         bloatingSeverity,
@@ -8964,6 +8997,7 @@ class Symptom extends DataClass implements Insertable<Symptom> {
           other.energyLevel == this.energyLevel &&
           other.mentalClarity == this.mentalClarity &&
           other.moodRating == this.moodRating &&
+          other.sleepQuality == this.sleepQuality &&
           other.hungerLevel == this.hungerLevel &&
           other.satietyLevel == this.satietyLevel &&
           other.bloatingSeverity == this.bloatingSeverity &&
@@ -8989,6 +9023,7 @@ class SymptomsCompanion extends UpdateCompanion<Symptom> {
   final Value<int?> energyLevel;
   final Value<int?> mentalClarity;
   final Value<int?> moodRating;
+  final Value<int?> sleepQuality;
   final Value<int?> hungerLevel;
   final Value<int?> satietyLevel;
   final Value<int?> bloatingSeverity;
@@ -9012,6 +9047,7 @@ class SymptomsCompanion extends UpdateCompanion<Symptom> {
     this.energyLevel = const Value.absent(),
     this.mentalClarity = const Value.absent(),
     this.moodRating = const Value.absent(),
+    this.sleepQuality = const Value.absent(),
     this.hungerLevel = const Value.absent(),
     this.satietyLevel = const Value.absent(),
     this.bloatingSeverity = const Value.absent(),
@@ -9036,6 +9072,7 @@ class SymptomsCompanion extends UpdateCompanion<Symptom> {
     this.energyLevel = const Value.absent(),
     this.mentalClarity = const Value.absent(),
     this.moodRating = const Value.absent(),
+    this.sleepQuality = const Value.absent(),
     this.hungerLevel = const Value.absent(),
     this.satietyLevel = const Value.absent(),
     this.bloatingSeverity = const Value.absent(),
@@ -9062,6 +9099,7 @@ class SymptomsCompanion extends UpdateCompanion<Symptom> {
     Expression<int>? energyLevel,
     Expression<int>? mentalClarity,
     Expression<int>? moodRating,
+    Expression<int>? sleepQuality,
     Expression<int>? hungerLevel,
     Expression<int>? satietyLevel,
     Expression<int>? bloatingSeverity,
@@ -9088,6 +9126,7 @@ class SymptomsCompanion extends UpdateCompanion<Symptom> {
       if (energyLevel != null) 'energy_level': energyLevel,
       if (mentalClarity != null) 'mental_clarity': mentalClarity,
       if (moodRating != null) 'mood_rating': moodRating,
+      if (sleepQuality != null) 'sleep_quality': sleepQuality,
       if (hungerLevel != null) 'hunger_level': hungerLevel,
       if (satietyLevel != null) 'satiety_level': satietyLevel,
       if (bloatingSeverity != null) 'bloating_severity': bloatingSeverity,
@@ -9114,6 +9153,7 @@ class SymptomsCompanion extends UpdateCompanion<Symptom> {
       Value<int?>? energyLevel,
       Value<int?>? mentalClarity,
       Value<int?>? moodRating,
+      Value<int?>? sleepQuality,
       Value<int?>? hungerLevel,
       Value<int?>? satietyLevel,
       Value<int?>? bloatingSeverity,
@@ -9137,6 +9177,7 @@ class SymptomsCompanion extends UpdateCompanion<Symptom> {
       energyLevel: energyLevel ?? this.energyLevel,
       mentalClarity: mentalClarity ?? this.mentalClarity,
       moodRating: moodRating ?? this.moodRating,
+      sleepQuality: sleepQuality ?? this.sleepQuality,
       hungerLevel: hungerLevel ?? this.hungerLevel,
       satietyLevel: satietyLevel ?? this.satietyLevel,
       bloatingSeverity: bloatingSeverity ?? this.bloatingSeverity,
@@ -9193,6 +9234,9 @@ class SymptomsCompanion extends UpdateCompanion<Symptom> {
     if (moodRating.present) {
       map['mood_rating'] = Variable<int>(moodRating.value);
     }
+    if (sleepQuality.present) {
+      map['sleep_quality'] = Variable<int>(sleepQuality.value);
+    }
     if (hungerLevel.present) {
       map['hunger_level'] = Variable<int>(hungerLevel.value);
     }
@@ -9237,6 +9281,7 @@ class SymptomsCompanion extends UpdateCompanion<Symptom> {
           ..write('energyLevel: $energyLevel, ')
           ..write('mentalClarity: $mentalClarity, ')
           ..write('moodRating: $moodRating, ')
+          ..write('sleepQuality: $sleepQuality, ')
           ..write('hungerLevel: $hungerLevel, ')
           ..write('satietyLevel: $satietyLevel, ')
           ..write('bloatingSeverity: $bloatingSeverity, ')
@@ -12640,6 +12685,7 @@ typedef $$SymptomsTableCreateCompanionBuilder = SymptomsCompanion Function({
   Value<int?> energyLevel,
   Value<int?> mentalClarity,
   Value<int?> moodRating,
+  Value<int?> sleepQuality,
   Value<int?> hungerLevel,
   Value<int?> satietyLevel,
   Value<int?> bloatingSeverity,
@@ -12664,6 +12710,7 @@ typedef $$SymptomsTableUpdateCompanionBuilder = SymptomsCompanion Function({
   Value<int?> energyLevel,
   Value<int?> mentalClarity,
   Value<int?> moodRating,
+  Value<int?> sleepQuality,
   Value<int?> hungerLevel,
   Value<int?> satietyLevel,
   Value<int?> bloatingSeverity,
@@ -12731,6 +12778,9 @@ class $$SymptomsTableFilterComposer
 
   ColumnFilters<int> get moodRating => $composableBuilder(
       column: $table.moodRating, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sleepQuality => $composableBuilder(
+      column: $table.sleepQuality, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get hungerLevel => $composableBuilder(
       column: $table.hungerLevel, builder: (column) => ColumnFilters(column));
@@ -12820,6 +12870,10 @@ class $$SymptomsTableOrderingComposer
   ColumnOrderings<int> get moodRating => $composableBuilder(
       column: $table.moodRating, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get sleepQuality => $composableBuilder(
+      column: $table.sleepQuality,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get hungerLevel => $composableBuilder(
       column: $table.hungerLevel, builder: (column) => ColumnOrderings(column));
 
@@ -12901,6 +12955,9 @@ class $$SymptomsTableAnnotationComposer
   GeneratedColumn<int> get moodRating => $composableBuilder(
       column: $table.moodRating, builder: (column) => column);
 
+  GeneratedColumn<int> get sleepQuality => $composableBuilder(
+      column: $table.sleepQuality, builder: (column) => column);
+
   GeneratedColumn<int> get hungerLevel => $composableBuilder(
       column: $table.hungerLevel, builder: (column) => column);
 
@@ -12963,6 +13020,7 @@ class $$SymptomsTableTableManager extends RootTableManager<
             Value<int?> energyLevel = const Value.absent(),
             Value<int?> mentalClarity = const Value.absent(),
             Value<int?> moodRating = const Value.absent(),
+            Value<int?> sleepQuality = const Value.absent(),
             Value<int?> hungerLevel = const Value.absent(),
             Value<int?> satietyLevel = const Value.absent(),
             Value<int?> bloatingSeverity = const Value.absent(),
@@ -12987,6 +13045,7 @@ class $$SymptomsTableTableManager extends RootTableManager<
             energyLevel: energyLevel,
             mentalClarity: mentalClarity,
             moodRating: moodRating,
+            sleepQuality: sleepQuality,
             hungerLevel: hungerLevel,
             satietyLevel: satietyLevel,
             bloatingSeverity: bloatingSeverity,
@@ -13011,6 +13070,7 @@ class $$SymptomsTableTableManager extends RootTableManager<
             Value<int?> energyLevel = const Value.absent(),
             Value<int?> mentalClarity = const Value.absent(),
             Value<int?> moodRating = const Value.absent(),
+            Value<int?> sleepQuality = const Value.absent(),
             Value<int?> hungerLevel = const Value.absent(),
             Value<int?> satietyLevel = const Value.absent(),
             Value<int?> bloatingSeverity = const Value.absent(),
@@ -13035,6 +13095,7 @@ class $$SymptomsTableTableManager extends RootTableManager<
             energyLevel: energyLevel,
             mentalClarity: mentalClarity,
             moodRating: moodRating,
+            sleepQuality: sleepQuality,
             hungerLevel: hungerLevel,
             satietyLevel: satietyLevel,
             bloatingSeverity: bloatingSeverity,

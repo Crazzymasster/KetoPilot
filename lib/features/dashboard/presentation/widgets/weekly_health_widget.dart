@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/database/daos/symptoms_dao.dart';
+import '../../../../core/database/daos/drift_symptoms_dao.dart';
 import '../../../../core/providers/user_provider.dart';
 
 class WeeklyHealthWidget extends ConsumerStatefulWidget {
@@ -14,7 +14,7 @@ class WeeklyHealthWidget extends ConsumerStatefulWidget {
 }
 
 class _WeeklyHealthWidgetState extends ConsumerState<WeeklyHealthWidget> {
-  final SymptomsDao _symptomsDao = SymptomsDao();
+  final DriftSymptomsDao _symptomsDao = DriftSymptomsDao();
 
   bool _isLoading = true;
   List<Map<String, dynamic>> _weekData = const [];

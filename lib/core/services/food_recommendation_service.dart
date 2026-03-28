@@ -1,21 +1,18 @@
-import 'package:sqflite/sqflite.dart';
-import '../database/database_service.dart';
+import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
+import '../database/drift_database_service.dart';
 import '../database/models/food_model.dart';
 import '../database/models/user_food_history_model.dart';
-import '../database/daos/food_dao.dart';
-import '../database/daos/user_dao.dart';
-import '../database/daos/daily_summary_dao.dart';
-import '../database/daos/health_log_dao.dart';
-import '../database/daos/user_food_history_dao.dart';
+import '../database/daos/drift_food_dao.dart';
+import '../database/daos/drift_user_dao.dart';
 
 /// Service for generating intelligent food recommendations
+/// Uses Drift database for all platforms
+/// TODO: Add DriftDailySummaryDao and DriftHealthLogDao for full functionality
 class FoodRecommendationService {
-  final DatabaseService _dbService = DatabaseService();
-  final FoodDao _foodDao = FoodDao();
-  final UserDao _userDao = UserDao();
-  final DailySummaryDao _summaryDao = DailySummaryDao();
-  final HealthLogDao _healthLogDao = HealthLogDao();
-  final UserFoodHistoryDao _foodHistoryDao = UserFoodHistoryDao();
+  final DriftDatabaseService _dbService = DriftDatabaseService();
+  final DriftFoodDao _foodDao = DriftFoodDao();
+  final DriftUserDao _userDao = DriftUserDao();
 
   /// Get personalized food recommendations
   Future<List<FoodRecommendation>> getRecommendations({
@@ -25,42 +22,85 @@ class FoodRecommendationService {
   }) async {
     final db = await _dbService.database;
     
-    // Get user context
+    //get user context
     final user = await _userDao.getUserById(userId);
     if (user == null) {
       throw Exception('User not found');
     }
 
-    // Get today's summary
+    //get today's summary using raw Drift query
     final today = DateTime.now().toIso8601String().split('T')[0];
-    final summary = await _summaryDao.getDailySummary(userId, today);
-    final consumedCarbs = summary?.totalNetCarbsG ?? 0.0;
+    double consumedCarbs = 0.0;
+    
+    try {
+      final summaryResult = await db.customSelect(
+        'SELECT total_net_carbs_g FROM daily_summaries WHERE user_id = ? AND date = ?',
+        variables: [Variable.withInt(userId), Variable.withString(today)],
+      ).getSingleOrNull();
+      
+      if (summaryResult != null) {
+        consumedCarbs = summaryResult.read<double?>('total_net_carbs_g') ?? 0.0;
+      }
+    } catch (e) {
+      debugPrint('[RECOMMENDATION] Error fetching daily summary: $e');
+    }
+    
     final remainingCarbs = user.targetNetCarbs - consumedCarbs;
 
-    // Determine time of day if not provided
+    //determine time of day if not provided
     final currentTimeOfDay = timeOfDay ?? _getTimeOfDay(DateTime.now());
 
-    // Get recent ketosis status (last 7 days)
+    //get recent ketosis status (last 7 days) using raw query
     final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
     final startDate = sevenDaysAgo.toIso8601String().split('T')[0];
-    final avgGki = await _healthLogDao.getAverageGki(userId, startDate, today);
+    double? avgGki;
+    
+    try {
+      final gkiResult = await db.customSelect(
+        'SELECT AVG(gki_score) as avg_gki FROM health_logs WHERE user_id = ? AND date >= ? AND date <= ? AND gki_score IS NOT NULL',
+        variables: [Variable.withInt(userId), Variable.withString(startDate), Variable.withString(today)],
+      ).getSingleOrNull();
+      
+      if (gkiResult != null) {
+        avgGki = gkiResult.read<double?>('avg_gki');
+      }
+    } catch (e) {
+      debugPrint('[RECOMMENDATION] Error fetching GKI: $e');
+    }
 
-    // Get keto-friendly foods or foods that fit remaining carbs
-    final foods = await _foodDao.getFoodsByNetCarbs(
-      maxNetCarbs: remainingCarbs > 0 ? remainingCarbs : null,
-      limit: 100, // Get more to score and filter
-    );
+    //get keto-friendly foods or foods that fit remaining carbs
+    List<FoodModel> foods;
+    try {
+      if (remainingCarbs > 0) {
+        //get foods that fit within remaining carbs using raw query
+        final results = await db.customSelect('''
+          SELECT * FROM foods 
+          WHERE (net_carbs_g IS NOT NULL AND net_carbs_g <= ?)
+             OR (net_carbs_g IS NULL AND (total_carbohydrate_g - dietary_fiber_g) <= ?)
+          ORDER BY net_carbs_g ASC
+          LIMIT 100
+        ''', variables: [
+          Variable.withReal(remainingCarbs),
+          Variable.withReal(remainingCarbs),
+        ]).get();
+        
+        foods = results.map((row) => FoodModel.fromMap(row.data)).toList();
+      } else {
+        //get keto-friendly foods
+        foods = await _foodDao.getKetoFriendlyFoods(limit: 100);
+      }
+    } catch (e) {
+      debugPrint('[RECOMMENDATION] Error fetching foods: $e');
+      foods = [];
+    }
 
-    // Score each food
+    //score each food (without food history since table doesn't exist in Drift)
     final recommendations = <FoodRecommendation>[];
     for (final food in foods) {
-      // Get food history if exists
-      final history = await _foodHistoryDao.getFoodHistory(userId, food.foodId ?? 0);
-      
-      // Calculate recommendation score
+      //calculate recommendation score without history data
       final score = _calculateRecommendationScore(
         food: food,
-        history: history,
+        history: null,
         timeOfDay: currentTimeOfDay,
         remainingCarbs: remainingCarbs,
         avgGki: avgGki,
@@ -71,7 +111,7 @@ class FoodRecommendationService {
         recommendationScore: score,
         reasons: _getRecommendationReasons(
           food: food,
-          history: history,
+          history: null,
           timeOfDay: currentTimeOfDay,
           remainingCarbs: remainingCarbs,
           avgGki: avgGki,
@@ -79,7 +119,7 @@ class FoodRecommendationService {
       ));
     }
 
-    // Sort by score and limit
+    //sort by score and limit
     recommendations.sort((a, b) => b.recommendationScore.compareTo(a.recommendationScore));
     return recommendations.take(limit).toList();
   }

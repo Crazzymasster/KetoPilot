@@ -25,7 +25,45 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
+
+  //Helper to safely add a column - tries Drift migrator first, falls back to raw SQL
+  Future<void> _safeAddColumn(
+    Migrator m,
+    String tableName,
+    String columnName,
+    String columnType, {
+    String? defaultValue,
+  }) async {
+    try {
+      //Check if column already exists to avoid duplicate column errors
+      final result = await customSelect(
+        "PRAGMA table_info($tableName)",
+      ).get();
+      
+      final columnExists = result.any(
+        (row) => row.read<String>('name') == columnName,
+      );
+      
+      if (columnExists) {
+        // ignore: avoid_print
+        print('[DRIFT DB] Column $columnName already exists in $tableName, skipping');
+        return;
+      }
+      
+      //Add column via raw SQL for maximum compatibility
+      final defaultClause = defaultValue != null ? ' DEFAULT $defaultValue' : '';
+      await customStatement(
+        'ALTER TABLE $tableName ADD COLUMN $columnName $columnType$defaultClause',
+      );
+      // ignore: avoid_print
+      print('[DRIFT DB] ✓ Added column $columnName to $tableName');
+    } catch (e) {
+      // ignore: avoid_print
+      print('[DRIFT DB] ⚠ Migration warning for $tableName.$columnName: $e');
+      //Column might already exist or table structure differs - continue gracefully
+    }
+  }
 
   @override
   MigrationStrategy get migration {
@@ -34,18 +72,34 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // Migration from version 1 to 2: Add profile_setup_completed column
+        // ignore: avoid_print
+        print('[DRIFT DB] Upgrading database from version $from to $to');
+        
+        //Migration from version 1 to 2: Add profile_setup_completed column
         if (from < 2) {
-          await m.addColumn(users, users.profileSetupCompleted);
+          await _safeAddColumn(
+            m, 'users', 'profile_setup_completed', 'INTEGER',
+            defaultValue: '0',
+          );
         }
-        // Migration from version 2 to 3: Add phone_number column
+        
+        //Migration from version 2 to 3: Add phone_number column
         if (from < 3) {
-          await m.addColumn(users, users.phoneNumber);
+          await _safeAddColumn(m, 'users', 'phone_number', 'TEXT');
         }
-        // Migration from version 3 to 4: Add cloud_id for diet entry sync
+        
+        //Migration from version 3 to 4: Add cloud_id for diet entry sync
         if (from < 4) {
-          await m.addColumn(dietEntries, dietEntries.cloudId);
+          await _safeAddColumn(m, 'tb_diet_entries', 'cloud_id', 'TEXT');
         }
+        
+        //Migration from version 4 to 5: Add sleep_quality for symptoms
+        if (from < 5) {
+          await _safeAddColumn(m, 'symptoms', 'sleep_quality', 'INTEGER');
+        }
+        
+        // ignore: avoid_print
+        print('[DRIFT DB] ✓ Migration complete');
       },
     );
   }

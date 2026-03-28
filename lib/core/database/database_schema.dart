@@ -372,6 +372,7 @@ class DatabaseSchema {
         food_photo_url TEXT,
         
         synced INTEGER DEFAULT 0,
+        cloud_id TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         

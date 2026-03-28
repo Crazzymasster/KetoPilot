@@ -67,10 +67,21 @@ class DatabaseService {
 
   /// Handle database upgrades
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Migration logic will be added here as schema evolves
-    if (oldVersion < newVersion) {
-      // Example: Add new columns or tables
-      // await db.execute('ALTER TABLE tb_user ADD COLUMN new_field TEXT');
+    //Migration from version 1 to 2: Add cloud_id column for sync
+    if (oldVersion < 2) {
+      try {
+        //Check if column already exists
+        final result = await db.rawQuery("PRAGMA table_info(tb_diet_entries)");
+        final hasCloudId = result.any((col) => col['name'] == 'cloud_id');
+        
+        if (!hasCloudId) {
+          await db.execute('ALTER TABLE tb_diet_entries ADD COLUMN cloud_id TEXT');
+        }
+      } catch (e) {
+        //Column might already exist - continue gracefully
+        // ignore: avoid_print
+        print('[DB] Migration warning: $e');
+      }
     }
   }
 

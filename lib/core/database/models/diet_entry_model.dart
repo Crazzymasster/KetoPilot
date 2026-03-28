@@ -73,7 +73,8 @@ class DietEntryModel {
       'notes': notes,
       'food_photo_url': foodPhotoUrl,
       'synced': synced,
-      'cloud_id': cloudId,
+      //only include cloud_id if it has a value (column may not exist in older DBs)
+      if (cloudId != null) 'cloud_id': cloudId,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };

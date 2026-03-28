@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../database/drift_database_service.dart';
+import '../database/drift_database.dart'; //imports generated types
 import 'package:drift/drift.dart';
 
 /// Service for database backup and restore operations

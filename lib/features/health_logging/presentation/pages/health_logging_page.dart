@@ -1,15 +1,13 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/themes/app_theme.dart';
-import '../../../../core/database/daos/symptoms_dao.dart';
+import '../../../../core/database/daos/drift_symptoms_dao.dart';
 import '../../../../core/database/models/symptoms_model.dart';
 import '../../../../core/providers/user_provider.dart';
-import '../../../../core/database/database_service.dart';
-import '../../../../core/database/daos/user_dao.dart'; // CHANGED
 
 @RoutePage()
 class HealthLoggingPage extends ConsumerStatefulWidget {
@@ -23,8 +21,8 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
   final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
 
-  final UserDao? _userDao = kIsWeb ? null : UserDao(); // CHANGED
-  final SymptomsDao? _symptomsDao = kIsWeb ? null : SymptomsDao();
+  //using Drift for all platforms
+  final DriftSymptomsDao _symptomsDao = DriftSymptomsDao();
 
   bool _isSaving = false;
 
@@ -61,8 +59,6 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isWebMode = kIsWeb;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Health Logging'),
@@ -82,22 +78,6 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (isWebMode) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.withOpacity(0.35)),
-                  ),
-                  child: const Text(
-                    'Health log saving is not supported on web yet. Please use Android/iOS, or add a web-compatible DAO later.',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-              ],
               _buildDateSelector(),
               const SizedBox(height: 24),
               _buildWellnessScales(),
@@ -348,7 +328,7 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: (_isSaving || kIsWeb) ? null : _saveHealthLog,
+        onPressed: _isSaving ? null : _saveHealthLog,
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
         ),
@@ -358,7 +338,7 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
           height: 20,
           child: CircularProgressIndicator(strokeWidth: 2),
         )
-            : Text(kIsWeb ? 'Save Not Available on Web' : 'Save Health Log'),
+            : const Text('Save Health Log'),
       ),
     );
   }
@@ -374,19 +354,6 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
   }
 
   Future<void> _saveHealthLog() async {
-    if (kIsWeb) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Saving health logs on web is not supported yet. Please use Android/iOS.',
-          ),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-      return;
-    }
-
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -398,63 +365,8 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
     try {
       final user = ref.read(userProvider).currentUser;
 
-      // DEBUG: inspect provider user
-      debugPrint('DEBUG currentUser = $user');
-      debugPrint('DEBUG currentUser.userId = ${user?.userId}');
-      debugPrint('DEBUG currentUser.fullName = ${user?.fullName}');
-
       if (user == null || user.userId == null) {
         throw Exception('No logged in user found.');
-      }
-
-      // DEBUG: inspect local database tables and parent user row
-      final db = await DatabaseService().database;
-
-      final tables = await db.rawQuery(
-        "SELECT name, sql FROM sqlite_master WHERE type='table'",
-      );
-      debugPrint('DEBUG sqlite tables = $tables');
-
-      for (final tableName in ['tb_user', 'tb_users', 'users', 'user']) {
-        try {
-          final rows = await db.rawQuery(
-            'SELECT * FROM $tableName WHERE user_id = ?',
-            [user.userId!],
-          );
-          debugPrint(
-            'DEBUG rows in $tableName for user_id=${user.userId!} => $rows',
-          );
-        } catch (e) {
-          debugPrint('DEBUG table check failed for $tableName => $e');
-        }
-      }
-
-      // CHANGED: ensure sqflite tb_user has the parent row before saving symptoms
-      final localUser = await _userDao!.getUserById(user.userId!);
-      debugPrint(
-        'DEBUG sqflite localUser before symptom save = ${localUser?.toMap()}',
-      );
-
-      if (localUser == null) {
-        debugPrint(
-          'DEBUG inserting missing sqflite tb_user row for user_id=${user.userId!}',
-        );
-
-        await _userDao!.insertUser(
-          user.copyWith(
-            updatedAt: DateTime.now().toIso8601String(),
-            lastLogin: DateTime.now().toIso8601String(),
-          ),
-        );
-
-        final verifyUser = await _userDao!.getUserById(user.userId!);
-        debugPrint(
-          'DEBUG sqflite localUser after insert = ${verifyUser?.toMap()}',
-        );
-
-        if (verifyUser == null) {
-          throw Exception('Failed to create local user row in sqflite tb_user.');
-        }
       }
 
       final dbDate = _formatDbDate(_selectedDate);
@@ -513,21 +425,15 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
         createdAt: nowIso,
       );
 
-      // DEBUG: inspect payload before insert/update
-      debugPrint('DEBUG save userId = ${user.userId!}');
-      debugPrint('DEBUG save date = $dbDate');
-      debugPrint('DEBUG save symptom map = ${symptom.toMap()}');
-
-      final existingLogs = await _symptomsDao!.getSymptomsByDate(
+      //check if log exists for this date
+      final existingLogs = await _symptomsDao.getSymptomsByDate(
         user.userId!,
         dbDate,
       );
 
-      debugPrint('DEBUG existing logs count = ${existingLogs.length}');
-
       if (existingLogs.isNotEmpty) {
+        //update existing log
         final existing = existingLogs.first;
-
         final updatedSymptom = SymptomsModel(
           symptomId: existing.symptomId,
           userId: user.userId!,
@@ -555,12 +461,10 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
           synced: existing.synced,
           createdAt: existing.createdAt,
         );
-
-        debugPrint('DEBUG updating symptomId = ${existing.symptomId}');
-        await _symptomsDao!.updateSymptoms(updatedSymptom);
+        await _symptomsDao.updateSymptoms(updatedSymptom);
       } else {
-        debugPrint('DEBUG inserting new symptom row');
-        await _symptomsDao!.insertSymptoms(symptom);
+        //insert new log
+        await _symptomsDao.insertSymptoms(symptom);
       }
 
       if (!mounted) return;
@@ -583,7 +487,7 @@ class _HealthLoggingPageState extends ConsumerState<HealthLoggingPage> {
 
       context.router.pop(true);
     } catch (e) {
-      debugPrint('DEBUG save health log error = $e');
+      debugPrint('[HEALTH LOG] Save error: $e');
 
       if (!mounted) return;
 

@@ -16,7 +16,7 @@ class AppConstants {
 
   // Database
   static const String databaseName = 'metabolic_health.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 2;
 
   // Validation
   static const double minWeight = 30.0;

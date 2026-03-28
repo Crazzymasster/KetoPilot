@@ -1,16 +1,14 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // CHANGED: added Riverpod
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../core/database/models/diet_entry_model.dart';
 import '../../../../core/database/daos/drift_diet_entry_dao.dart';
-import '../../../../core/database/daos/diet_entry_dao.dart';
 import '../../../../core/database/daos/drift_food_dao.dart';
-import '../../../../core/database/daos/food_dao.dart';
 import '../../../../core/database/models/food_model.dart';
 import '../../../../core/providers/user_provider.dart'; // CHANGED: added user provider
 
@@ -41,11 +39,9 @@ class _DataEntryPageState extends ConsumerState<DataEntryPage>
   final TextEditingController _bhbController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
 
-  // Database DAOs
-  final DriftDietEntryDao _driftDietEntryDao = DriftDietEntryDao();
-  final DietEntryDao? _dietEntryDao = kIsWeb ? null : DietEntryDao();
-  final DriftFoodDao _driftFoodDao = DriftFoodDao();
-  final FoodDao? _foodDao = kIsWeb ? null : FoodDao();
+  // Database DAOs - using Drift for all platforms
+  final DriftDietEntryDao _dietEntryDao = DriftDietEntryDao();
+  final DriftFoodDao _foodDao = DriftFoodDao();
 
   // static const int _userId = 1; // TODO: Get from auth provider
   // CHANGED: removed hardcoded user id
@@ -764,13 +760,11 @@ class _DataEntryPageState extends ConsumerState<DataEntryPage>
       isKetoFriendly: netCarbs <= 20 ? 1 : 0,
     );
 
-    final foodId = kIsWeb
-        ? await _driftFoodDao.insertFood(food)
-        : await _foodDao!.insertFood(food);
+    final foodId = await _foodDao.insertFood(food);
 
     final dateStr = _selectedDateTime.toIso8601String().split('T')[0];
     final dietEntry = DietEntryModel(
-      userId: user.userId!, // CHANGED: use provider user id
+      userId: user.userId!,
       foodId: foodId,
       recordedAt: _selectedDateTime.toIso8601String(),
       date: dateStr,
@@ -784,11 +778,7 @@ class _DataEntryPageState extends ConsumerState<DataEntryPage>
       notes: 'Manual entry from Data Entry page',
     );
 
-    if (kIsWeb) {
-      await _driftDietEntryDao.insertDietEntry(dietEntry);
-    } else {
-      await _dietEntryDao!.insertDietEntry(dietEntry);
-    }
+    await _dietEntryDao.insertDietEntry(dietEntry);
   }
 
   Future<void> _saveBiomarkerData() async {

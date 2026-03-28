@@ -270,6 +270,7 @@ class Symptoms extends Table {
   IntColumn get energyLevel => integer().nullable()();
   IntColumn get mentalClarity => integer().nullable()();
   IntColumn get moodRating => integer().nullable()();
+  IntColumn get sleepQuality => integer().nullable()();
   IntColumn get hungerLevel => integer().nullable()();
   IntColumn get satietyLevel => integer().nullable()();
   

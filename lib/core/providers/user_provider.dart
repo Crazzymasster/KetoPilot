@@ -8,8 +8,6 @@ import '../database/models/user_model.dart';
 import '../services/diet_entry_sync_service.dart';
 import '../services/supabase_service.dart';
 import '../utils/password_utils.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import '../database/daos/user_dao.dart'; // CHANGED
 
 //global provider that keeps track of who's logged in
 final userProvider = ChangeNotifierProvider<UserProvider>(
@@ -18,7 +16,6 @@ final userProvider = ChangeNotifierProvider<UserProvider>(
 
 class UserProvider extends ChangeNotifier {
   final DriftUserDao _userDao = DriftUserDao();
-  final UserDao? _sqfliteUserDao = kIsWeb ? null : UserDao(); // CHANGED
   final SupabaseAuthService _authService = SupabaseAuthService();
 
   UserModel? _currentUser;
@@ -121,31 +118,6 @@ class UserProvider extends ChangeNotifier {
   }
 
 
-  Future<void> _syncUserToSqflite(UserModel user) async {
-    if (kIsWeb || _sqfliteUserDao == null) return;
-
-    try {
-      UserModel? existing;
-
-      if (user.userId != null) {
-        existing = await _sqfliteUserDao!.getUserById(user.userId!);
-      }
-
-      existing ??= await _sqfliteUserDao!.getUserByAnonymousId(user.anonymousId ?? '');
-
-      if (existing == null) {
-        await _sqfliteUserDao!.insertUser(user);
-        debugPrint('[USER PROVIDER] Inserted user into sqflite tb_user: ${user.userId}');
-      } else {
-        final mergedUser = user.copyWith(userId: existing.userId);
-        await _sqfliteUserDao!.updateUser(mergedUser);
-        debugPrint('[USER PROVIDER] Updated user in sqflite tb_user: ${mergedUser.userId}');
-      }
-    } catch (e) {
-      debugPrint('[USER PROVIDER] Error syncing user to sqflite: $e');
-    }
-  }
-
   //sync user data between Supabase and local database (WITH FIX FOR UNIQUE CONSTRAINT)
 
   Future<void> _syncUserData() async {
@@ -222,11 +194,6 @@ class UserProvider extends ChangeNotifier {
         );
         await _userDao.upsertUserMerge(newUser);
         _currentUser = await _userDao.getUserByAnonymousId(_supabaseUser!.id);
-
-        // CHANGED: also sync into sqflite tb_user for SymptomsDao
-        if (_currentUser != null) {
-          await _syncUserToSqflite(_currentUser!);
-        }
       } else {
         //update existing user - merge Supabase flags with local data
         //if Supabase says profile is complete, honor that (completed on another device)
@@ -250,8 +217,6 @@ class UserProvider extends ChangeNotifier {
         );
         await _userDao.updateUser(updatedUser);
         _currentUser = updatedUser;
-        // CHANGED: also sync into sqflite tb_user for SymptomsDao
-        await _syncUserToSqflite(_currentUser!);
       }
       
       //sync diet entries after user data is ready
